@@ -12,10 +12,10 @@
 *
 *	@example ~/.config/opencode/auto-handoff.json
 *	{
-*		"every_n_turns": 10,
+*		"every_turns": 20,
 *		"on_exit": true,
 *		"on_start": true,
-*		"recent_messages_count": 10,
+*		"keep_last": 20,
 *		"log_level": "info"
 *	}
 *
@@ -41,10 +41,10 @@ const LOG_FILE = `${CONFIG_DIR}/auto-handoff.log`;
 // ─── Defaults ──────────────────────────────────────────────────────────────
 
 const DEFAULTS = {
-	every_n_turns: 10,
+	every_turns: 20,
 	on_exit: true,
 	on_start: true,
-	recent_messages_count: 10,
+	keep_last: 20,
 	log_level: "info" as "silent" | "info" | "debug",
 } as const;
 
@@ -170,7 +170,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 			const dir = join( projectDir, ".handoff" );
 			const path = join( dir, `${ts}.md` );
 
-			const recent = messages.slice( -opts.recent_messages_count );
+			const recent = messages.slice( -opts.keep_last );
 			const messagesBlock = recent.length > 0
 				? recent.map( m => `- [${m.role}] ${m.content.slice( 0, 200 )}` ).join( "\n" )
 				: "(no messages captured)";
@@ -221,7 +221,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 		}
 	}
 
-	logger.log( "info", `Initialized | project: ${projectDir} | every_n_turns: ${opts.every_n_turns}` );
+	logger.log( "info", `Initialized | project: ${projectDir} | every_turns: ${opts.every_turns}` );
 
 	return {
 		"experimental.chat.messages.transform": async ( _input, output ) =>
@@ -250,7 +250,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 				}
 
 				const userTurns = messages.filter( m => m.role === "user" ).length;
-				if ( userTurns > 0 && userTurns % opts.every_n_turns === 0 )
+				if ( userTurns > 0 && userTurns % opts.every_turns === 0 )
 				{
 					writeHandoff( `periodic (${userTurns} turns)` );
 				}
