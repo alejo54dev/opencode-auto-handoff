@@ -20,7 +20,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.4
+*	@version 1.0.5
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -135,7 +135,11 @@ const readTemplate = ( handoff: string ): string =>
 	`[Resume previous session — handoff loaded]\n\n` +
 	`A handoff from a previous session was loaded. Follow these steps:\n` +
 	`1. Briefly acknowledge the resume (1-2 lines).\n` +
-	`2. Present a short summary of where we left off.\n` +
+	`2. Present a structured summary using these sections:\n` +
+	`   - **Where we left off**: 1-2 sentences on the last task/state.\n` +
+	`   - **Next step**: what was pending or in progress.\n` +
+	`   - **Key context**: names, files, decisions, constraints mentioned.\n` +
+	`   - **Recent activity**: brief recap of the last few messages.\n` +
 	`3. Wait for the user's next instruction.\n\n` +
 	`---\n\n` +
 	`${handoff}`;
