@@ -5,30 +5,37 @@
  *	Writes .handoff/<timestamp>.md every N user-turns and on session exit.
  *	No keywords, no load — just automatic snapshots.
  *
- *	Config: passed via opencode plugin options (see AGENTS.md).
+ *	Install: cp auto-handoff.ts ~/.config/opencode/plugins/auto-handoff.ts
+ *	Config:  ~/.config/opencode/auto-handoff.json
+ *	Log:     ~/.config/opencode/auto-handoff.log
  *	Output: <project>/.handoff/<timestamp>.md
  *
- *	@example opencode.json plugin entry
+ *	@example ~/.config/opencode/auto-handoff.json
  *	{
- *		"plugin": [
- *			["auto-handoff", {
- *				"every_n_turns": 10,
- *				"on_exit": true,
- *				"recent_messages_count": 10,
- *				"log_level": "info"
- *			}]
- *		]
+ *		"every_n_turns": 10,
+ *		"on_exit": true,
+ *		"recent_messages_count": 10,
+ *		"log_level": "info"
  *	}
  *
  *	@name auto-handoff
- *	@version 1.0.2
+ *	@version 1.0.3
  *	@author Alejandro Carraretto
+ *	@author MiniMax-M3
  *	@license MIT
  */
 
 import type { Plugin, PluginInput, PluginOptions } from "@opencode-ai/plugin";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, existsSync, appendFileSync, writeFileSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
+
+// ─── Paths ─────────────────────────────────────────────────────────────────
+
+const HOME = process.env.HOME || homedir();
+const CONFIG_DIR = `${HOME}/.config/opencode`;
+const CONFIG_FILE = `${CONFIG_DIR}/auto-handoff.json`;
+const LOG_FILE = `${CONFIG_DIR}/auto-handoff.log`;
 
 // ─── Defaults ──────────────────────────────────────────────────────────────
 
@@ -40,36 +47,52 @@ const DEFAULTS = {
 } as const;
 
 type AutoHandoffOptions = Partial<typeof DEFAULTS>;
-type LogLevel = AutoHandoffOptions["log_level"];
 
 // ─── Logger ────────────────────────────────────────────────────────────────
 
-const LOG_LEVELS: Record<NonNullable<LogLevel>, number> = {
-	silent: 0,
-	info: 1,
-	debug: 2,
-};
-
-function makeLogger( level: NonNullable<LogLevel> )
+class Logger
 {
-	const threshold = LOG_LEVELS[ level ];
-	return ( severity: "info" | "debug" | "error", ...args: unknown[] ): void =>
+	private level: number;
+
+	constructor( level: "silent" | "info" | "debug" )
 	{
-		if ( threshold === 0 ) return;
-		if ( severity === "debug" && threshold < 2 ) return;
-		const label = severity.toUpperCase();
+		this.level = { silent: 0, info: 1, debug: 2 }[ level ];
+	}
+
+	log( level: "info" | "debug" | "error", ...args: unknown[] ): void
+	{
+		if ( this.level === 0 ) return;
+		if ( level === "debug" && this.level < 2 ) return;
+
+		const label = level.toUpperCase();
 		const msg = args.map( a =>
 			typeof a === "string" ? a : JSON.stringify( a )
 		).join( " " );
-		const line = `[auto-handoff] [${label}] ${msg}`;
-		if ( severity === "error" ) console.error( line );
-		else console.log( line );
-	};
+
+		try
+		{
+			appendFileSync( LOG_FILE, `[${new Date().toISOString()}] [${label}]: ${msg}\n` );
+		}
+		catch { /* log write failed — non-fatal */ }
+	}
 }
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
-function mergeOptions( raw?: PluginOptions ): typeof DEFAULTS
+function loadConfig(): AutoHandoffOptions
+{
+	if ( !existsSync( CONFIG_FILE ) ) return {};
+	try
+	{
+		return JSON.parse( readFileSync( CONFIG_FILE, "utf8" ) ) as AutoHandoffOptions;
+	}
+	catch
+	{
+		return {};
+	}
+}
+
+function mergeOptions( fileCfg: AutoHandoffOptions, raw?: PluginOptions ): typeof DEFAULTS
 {
 	const fromRaw: AutoHandoffOptions = {};
 	if ( raw && typeof raw === "object" )
@@ -79,7 +102,7 @@ function mergeOptions( raw?: PluginOptions ): typeof DEFAULTS
 			if ( k in DEFAULTS ) ( fromRaw as Record<string, unknown> )[ k ] = v;
 		}
 	}
-	return { ...DEFAULTS, ...fromRaw };
+	return { ...DEFAULTS, ...fileCfg, ...fromRaw };
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -108,8 +131,8 @@ function extractText( msg: MessageLike ): string
 
 export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 {
-	const opts = mergeOptions( rawOptions );
-	const log = makeLogger( opts.log_level );
+	const opts = mergeOptions( loadConfig(), rawOptions );
+	const logger = new Logger( opts.log_level );
 	const projectDir = ctx.directory;
 
 	const messages: Array<{ role: string; content: string }> = [];
@@ -136,11 +159,11 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 			mkdirSync( dir, { recursive: true } );
 			writeFileSync( path, content );
 			lastWriteTime = Date.now();
-			log( "info", `Handoff written (${reason}): ${path}` );
+			logger.log( "info", `Handoff written (${reason}): ${path}` );
 		}
 		catch ( err )
 		{
-			log( "error", "write failed:", ( err as Error ).message );
+			logger.log( "error", "write failed:", ( err as Error ).message );
 		}
 	};
 
@@ -152,7 +175,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 	};
 	process.once( "exit", onExit );
 
-	log( "info", `Initialized | project: ${projectDir} | every_n_turns: ${opts.every_n_turns}` );
+	logger.log( "info", `Initialized | project: ${projectDir} | every_n_turns: ${opts.every_n_turns}` );
 
 	return {
 		"experimental.chat.messages.transform": async ( _input, output ) =>
@@ -178,7 +201,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 			}
 			catch ( err )
 			{
-				log( "error", "messages.transform:", ( err as Error ).message );
+				logger.log( "error", "messages.transform:", ( err as Error ).message );
 			}
 		},
 
@@ -189,7 +212,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 			{
 				try { writeHandoff( "dispose" ); } catch { /* non-fatal */ }
 			}
-			log( "info", "Disposed" );
+			logger.log( "info", "Disposed" );
 		},
 	};
 } ) satisfies Plugin;

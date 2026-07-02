@@ -6,7 +6,7 @@ OpenCode plugin — periodic + exit handoff writer via `.md` files. Single-file 
 
 ## Stack
 
-- **Runtime:** Bun (uses `node:fs`, `node:path`)
+- **Runtime:** Bun (uses `node:fs`, `node:os`, `node:path`)
 - **Storage:** `<project>/.handoff/<timestamp>.md` (plain markdown files)
 - **Build:** `bun build --target=bun`
 
@@ -32,26 +32,25 @@ ls ~/.config/opencode/plugins/auto-handoff.ts
 
 ls .handoff/
 # expect: *.md files (after session activity)
+
+tail -f ~/.config/opencode/auto-handoff.log
+# expect: "Handoff written (periodic|exit|dispose): ..." entries
 ```
 
 ## Config
 
-Config is passed via opencode plugin options in `opencode.json` (no external config file):
+Canonical config at `~/.config/opencode/auto-handoff.json`:
 
 ```json
 {
-	"plugin": [
-		["auto-handoff", {
-			"every_n_turns": 10,
-			"on_exit": true,
-			"recent_messages_count": 10,
-			"log_level": "info"
-		}]
-	]
+	"every_n_turns": 10,
+	"on_exit": true,
+	"recent_messages_count": 10,
+	"log_level": "info"
 }
 ```
 
-Logs go to stdout/stderr (captured by opencode). No log file.
+Logs go to `~/.config/opencode/auto-handoff.log`.
 
 ## Behavior
 
@@ -107,5 +106,4 @@ periodic (10 turns)
 - Do not push without explicit user request.
 - Do not add database dependency — file-only by design.
 - Do not copy `auto-handoff.ts` to `~/.config/opencode/` root. Only `plugins/` is canonical.
-- Do not add external config files or log files — plugin lives entirely within opencode context.
 - Do not duplicate script header info (paths, install, config example) across md files.
