@@ -14,19 +14,20 @@
 *	{
 *		"every_n_turns": 10,
 *		"on_exit": true,
+*		"on_start": true,
 *		"recent_messages_count": 10,
 *		"log_level": "info"
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.3
+*	@version 1.0.4
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
 */
 
 import type { Plugin, PluginInput, PluginOptions } from "@opencode-ai/plugin";
-import { mkdirSync, existsSync, appendFileSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdirSync, existsSync, appendFileSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -42,6 +43,7 @@ const LOG_FILE = `${CONFIG_DIR}/auto-handoff.log`;
 const DEFAULTS = {
 	every_n_turns: 10,
 	on_exit: true,
+	on_start: true,
 	recent_messages_count: 10,
 	log_level: "info" as "silent" | "info" | "debug",
 } as const;
@@ -137,6 +139,8 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 	const messages: Array<{ role: string; content: string }> = [];
 	let lastWriteTime = 0;
+	let pendingHandoff: string | null = null;
+	let handoffInjected = false;
 
 	const writeHandoff = ( reason: string ): void =>
 	{
@@ -175,6 +179,31 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 	};
 	process.once( "exit", onExit );
 
+	if ( opts.on_start )
+	{
+		try
+		{
+			const dir = join( projectDir, ".handoff" );
+			if ( existsSync( dir ) )
+			{
+				const files = readdirSync( dir )
+					.filter( f => f.endsWith( ".md" ) )
+					.sort()
+					.reverse();
+				if ( files.length > 0 )
+				{
+					const latest = files[ 0 ];
+					pendingHandoff = readFileSync( join( dir, latest ), "utf8" );
+					logger.log( "info", `Handoff loaded: ${latest}` );
+				}
+			}
+		}
+		catch ( err )
+		{
+			logger.log( "error", "on_start load failed:", ( err as Error ).message );
+		}
+	}
+
 	logger.log( "info", `Initialized | project: ${projectDir} | every_n_turns: ${opts.every_n_turns}` );
 
 	return {
@@ -182,6 +211,16 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 		{
 			try
 			{
+				if ( pendingHandoff && !handoffInjected && output.messages )
+				{
+					output.messages.unshift( {
+						info: { role: "user", id: "handoff-resume" },
+						parts: [ { type: "text", text: `[Handoff from previous session]\n\n${pendingHandoff}` } ],
+					} as MessageLike );
+					handoffInjected = true;
+					logger.log( "info", "Handoff injected into context" );
+				}
+
 				if ( !output.messages?.length ) return;
 
 				for ( const msg of output.messages )

@@ -1,6 +1,6 @@
 # auto-handoff
 
-OpenCode plugin — periodic + exit handoff writer via `.md` files.
+OpenCode plugin — periodic + exit handoff writer, startup handoff reader via `.md` files.
 
 **No database.** `.handoff/*.md` is the only persistence.
 
@@ -8,8 +8,9 @@ OpenCode plugin — periodic + exit handoff writer via `.md` files.
 
 - **Periodic save** — writes new handoff every N user-turns (default 10)
 - **Exit save** — writes handoff when opencode closes (dispose + process.exit)
+- **Startup load** — reads latest handoff on plugin load, injects into context as synthetic user message
 
-No keywords, no auto-load. Just automatic snapshots.
+No keywords. Automatic snapshots + automatic resume.
 
 ## Install
 

@@ -2,7 +2,7 @@
 
 ## Project
 
-OpenCode plugin — periodic + exit handoff writer via `.md` files. Single-file TypeScript, runs on Bun. No database — `.handoff/*.md` is the only persistence.
+OpenCode plugin — periodic + exit handoff writer, startup handoff reader via `.md` files. Single-file TypeScript, runs on Bun. No database — `.handoff/*.md` is the only persistence.
 
 ## Stack
 
@@ -34,7 +34,7 @@ ls .handoff/
 # expect: *.md files (after session activity)
 
 tail -f ~/.config/opencode/auto-handoff.log
-# expect: "Handoff written (periodic|exit|dispose): ..." entries
+# expect: "Handoff written (periodic|exit|dispose): ..." and "Handoff loaded: ..." entries
 ```
 
 ## Config
@@ -45,6 +45,7 @@ Canonical config at `~/.config/opencode/auto-handoff.json`:
 {
 	"every_n_turns": 10,
 	"on_exit": true,
+	"on_start": true,
 	"recent_messages_count": 10,
 	"log_level": "info"
 }
@@ -59,6 +60,7 @@ Logs go to `~/.config/opencode/auto-handoff.log`.
 | `every_n_turns` | user-turn count reaches N | write new `.handoff/<ts>.md` |
 | `dispose` hook | clean shutdown | write handoff (if `on_exit: true`) |
 | `process.once("exit")` | session ends | write handoff (5s guard prevents double-write with dispose) |
+| `on_start` | plugin load | read latest `.handoff/<ts>.md` (via `readdirSync`, not glob), inject as synthetic user message on first transform |
 
 ## Output format
 
@@ -86,17 +88,17 @@ periodic (10 turns)
 ## Key invariants
 
 - No database — only `.handoff/*.md` files.
-- No keywords, no load — write-only, periodic + exit.
 - In-memory message buffer (last N messages) for handoff content.
 - Dedup: skip message if identical to last in buffer.
 - `process.once("exit")` registered, removed in `dispose`.
 - 5s time guard prevents double-write between `dispose` and `exit`.
+- `on_start` reads latest handoff via `readdirSync` (glob fails on `.handoff` dotdir), injects once per session.
 
 ## Plugin hooks
 
 | Hook | Purpose |
 |---|---|
-| `experimental.chat.messages.transform` | Count user turns, write handoff every N |
+| `experimental.chat.messages.transform` | Count user turns, write handoff every N; inject pending handoff on first call |
 | `process.once("exit")` | Auto-write on session end |
 | `dispose` | Cleanup (remove listener, auto-write) |
 
