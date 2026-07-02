@@ -29,3 +29,4 @@ See `AGENTS.md` for verification commands.
 ## Related
 
 - [handoff skill](../../.config/opencode/skills/handoff) — manual trigger, reads + summarizes handoffs
+- [auto-handoff skill](../../.config/opencode/skills/auto-handoff) — bundled manual override (save/load now)

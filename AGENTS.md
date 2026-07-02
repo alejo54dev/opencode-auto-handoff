@@ -17,6 +17,9 @@ auto-handoff/
 ├── auto-handoff.ts          # source (single file)
 ├── README.md
 ├── AGENTS.md
+├── skills/
+│   └── auto-handoff/
+│       └── SKILL.md         # bundled skill (manual save/load override)
 └── .handoff/               # session handoffs (gitignored)
 ```
 
