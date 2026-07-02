@@ -2,7 +2,7 @@
 
 ¿Cerraste opencode y volviste al día siguiente sin contexto? Este plugin te lo devuelve solo.
 
-Cada 10 turnos guarda un snapshot de tu sesión en un `.md`. Al cerrar, guarda otro. Al abrir, lee el más reciente y lo inyecta en el contexto como si nunca te hubieras ido. Sin comandos, sin palabras clave, sin base de datos — solo archivos de texto que podés leer, versionar, o borrar.
+Cada 10 turnos guarda un snapshot de tu sesión en un `.md`. Al cerrar, guarda otro. Al abrir, lee el más reciente y lo inyecta en el contexto como si nunca te hubieras ido. Sin comandos, sin palabras clave, sin base de datos — solo archivos de texto que podés leer, versionar o borrar.
 
 ## ¿Qué hace?
 
