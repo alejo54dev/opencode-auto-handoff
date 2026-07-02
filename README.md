@@ -1,6 +1,8 @@
-# auto-handoff
+# Auto Handoff — (tu sesión asegurada)
 
-Plugin de OpenCode que guarda y restaura el contexto de tu sesión automáticamente usando archivos `.md`. Sin base de datos, sin comandos manuales.
+¿Cerraste opencode y volviste al día siguiente sin contexto? Este plugin te lo devuelve solo.
+
+Cada 10 turnos guarda un snapshot de tu sesión en un `.md`. Al cerrar, guarda otro. Al abrir, lee el más reciente y lo inyecta en el contexto como si nunca te hubieras ido. Sin comandos, sin palabras clave, sin base de datos — solo archivos de texto que podés leer, versionar, o borrar.
 
 ## ¿Qué hace?
 
@@ -9,10 +11,6 @@ Plugin de OpenCode que guarda y restaura el contexto de tu sesión automáticame
 - **Carga al iniciar** — lee el último handoff al cargar el plugin y lo inyecta en el contexto como mensaje sintético del usuario
 
 Cero palabras clave. Snapshots automáticos + resumen automático.
-
-## ¿Por qué?
-
-Las sesiones de opencode son largas. Si cerrás y volvés al día siguiente, el modelo no recuerda nada. Este plugin te devuelve el contexto sin que tengas que hacer nada: cada 10 turnos guarda un resumen, al cerrar guarda otro, y al abrir lee el más reciente.
 
 ## Instalación
 
@@ -107,14 +105,15 @@ periodic (10 turns)
 | `process.once("exit")` | auto-escritura al cerrar sesión |
 | `dispose` | cleanup (remueve listener, auto-escribe) |
 
-## Skills relacionadas
+## Notas
 
-- **auto-handoff** (incluida en `skills/auto-handoff/`) — override manual: `save` y `load` ahora, sin esperar al próximo trigger automático.
+- Menos es más. :)
 
-## Detalle técnico
+## Autores
 
-Ver [AGENTS.md](./AGENTS.md) para invariantes, convenciones de código, y notas de implementación.
+- Alejandro Carraretto
+- MiniMax-M3
 
 ## Licencia
 
-MIT
+MIT — versión 1.0.5
