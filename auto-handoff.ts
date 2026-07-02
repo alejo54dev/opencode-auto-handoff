@@ -1,31 +1,3 @@
-/**
-*	auto-handoff.ts
-*
-*	OpenCode plugin — periodic + exit handoff writer.
-*	Writes .handoff/<timestamp>.md every N user-turns and on session exit.
-*	No keywords, no load — just automatic snapshots.
-*
-*	Install: cp auto-handoff.ts ~/.config/opencode/plugins/auto-handoff.ts
-*	Config:  ~/.config/opencode/auto-handoff.json
-*	Log:     ~/.config/opencode/auto-handoff.log
-*	Output: <project>/.handoff/<timestamp>.md
-*
-*	@example ~/.config/opencode/auto-handoff.json
-*	{
-*		"every_turns": 20,
-*		"on_exit": true,
-*		"on_start": true,
-*		"keep_last": 20,
-*		"log_level": "info" // silent, info, debug
-*	}
-*
-*	@name auto-handoff plugin.
- *	@version 1.0.6
-*	@author Alejandro Carraretto
-*	@author MiniMax-M3
-*	@license MIT
-*/
-
 import type { Plugin, PluginInput, PluginOptions } from "@opencode-ai/plugin";
 import { mkdirSync, existsSync, appendFileSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
