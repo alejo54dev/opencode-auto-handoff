@@ -30,7 +30,7 @@ See script header (`auto-handoff.ts:8`) for install path. Canonical load path: `
 ls ~/.config/opencode/plugins/auto-handoff.ts
 # expect: file exists
 
-ls /mnt/DATA/PROG/APPS/TEST/opencode/auto-handoff/.handoff/
+ls .handoff/
 # expect: *.md files (after session activity)
 
 tail -f ~/.config/opencode/auto-handoff.log
