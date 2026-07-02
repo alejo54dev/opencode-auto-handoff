@@ -5,3 +5,4 @@ storage/
 .env
 .DS_Store
 .handoff/
+.skills/
