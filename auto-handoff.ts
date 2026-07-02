@@ -16,7 +16,7 @@
 *		"on_exit": true,
 *		"on_start": true,
 *		"keep_last": 20,
-*		"log_level": "info"
+*		"log_level": "info" // silent, info, error
 *	}
 *
 *	@name auto-handoff plugin.
@@ -221,7 +221,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 		}
 	}
 
-	logger.log( "info", `Initialized | project: ${projectDir} | every_turns: ${opts.every_turns}` );
+	logger.log( "info", `Initialized | project: ${projectDir} | cfg: ${JSON.stringify( opts )}` );
 
 	return {
 		"experimental.chat.messages.transform": async ( _input, output ) =>
