@@ -1,8 +1,0 @@
-node_modules/
-dist/
-*.db*
-storage/
-.env
-.DS_Store
-.handoff/
-.skills/
