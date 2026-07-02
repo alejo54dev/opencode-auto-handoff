@@ -16,11 +16,11 @@
 *		"on_exit": true,
 *		"on_start": true,
 *		"keep_last": 20,
-*		"log_level": "info" // silent, info, error
+*		"log_level": "info" // silent, info, debug
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.5
+ *	@version 1.0.6
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -235,6 +235,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 						parts: [ { type: "text", text: readTemplate( pendingHandoff ) } ],
 					} as MessageLike );
 					handoffInjected = true;
+					messages.length = 0;
 					logger.log( "info", "Handoff injected into context" );
 				}
 
