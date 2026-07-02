@@ -1,32 +1,120 @@
 # auto-handoff
 
-OpenCode plugin — periodic + exit handoff writer, startup handoff reader via `.md` files.
+Plugin de OpenCode que guarda y restaura el contexto de tu sesión automáticamente usando archivos `.md`. Sin base de datos, sin comandos manuales.
 
-**No database.** `.handoff/*.md` is the only persistence.
+## ¿Qué hace?
 
-## What it does
+- **Guardado periódico** — escribe un handoff cada N turnos del usuario (default: 10)
+- **Guardado al salir** — escribe un handoff cuando opencode cierra
+- **Carga al iniciar** — lee el último handoff al cargar el plugin y lo inyecta en el contexto como mensaje sintético del usuario
 
-- **Periodic save** — writes new handoff every N user-turns (default 10)
-- **Exit save** — writes handoff when opencode closes (dispose + process.exit)
-- **Startup load** — reads latest handoff on plugin load, injects into context as synthetic user message
+Cero palabras clave. Snapshots automáticos + resumen automático.
 
-No keywords. Automatic snapshots + automatic resume.
+## ¿Por qué?
 
-## Install
+Las sesiones de opencode son largas. Si cerrás y volvés al día siguiente, el modelo no recuerda nada. Este plugin te devuelve el contexto sin que tengas que hacer nada: cada 10 turnos guarda un resumen, al cerrar guarda otro, y al abrir lee el más reciente.
+
+## Instalación
 
 ```bash
 cp auto-handoff.ts ~/.config/opencode/plugins/
 ```
 
-## Config
+El plugin se carga solo al iniciar opencode. No requiere registro manual.
 
-See `AGENTS.md` for canonical config schema and defaults.
+## Configuración
 
-## Verify
+Archivo: `~/.config/opencode/auto-handoff.json`
 
-See `AGENTS.md` for verification commands.
+```json
+{
+	"every_n_turns": 10,
+	"on_exit": true,
+	"on_start": true,
+	"recent_messages_count": 10,
+	"log_level": "info"
+}
+```
 
-## Related
+| campo | default | qué hace |
+|---|---|---|
+| `every_n_turns` | `10` | guarda un handoff cada N turnos del usuario |
+| `on_exit` | `true` | guarda al cerrar la sesión |
+| `on_start` | `true` | lee el último handoff al iniciar |
+| `recent_messages_count` | `10` | cuántos mensajes recientes incluye cada handoff |
+| `log_level` | `"info"` | nivel de log (`debug`, `info`, `warn`, `error`) |
 
-- [handoff skill](../../.config/opencode/skills/handoff) — manual trigger, reads + summarizes handoffs
-- [auto-handoff skill](../../.config/opencode/skills/auto-handoff) — bundled manual override (save/load now)
+Si el archivo no existe, se usan los defaults.
+
+## Verificación
+
+```bash
+ls ~/.config/opencode/plugins/auto-handoff.ts
+```
+
+Debería existir el archivo.
+
+```bash
+ls .handoff/
+```
+
+Después de usar opencode un rato, deberían aparecer archivos `*.md` (uno por cada handoff guardado).
+
+```bash
+tail -f ~/.config/opencode/auto-handoff.log
+```
+
+Deberías ver entradas como `Handoff written (periodic|exit|dispose): ...` y `Handoff loaded: ...`.
+
+## Formato de salida
+
+Cada handoff es un `.md` en `.handoff/<timestamp>.md`:
+
+```markdown
+# Handoff — 2026-07-02-1215
+
+## Reason
+periodic (10 turns)
+
+## Recent messages (last 10)
+- [user] hola
+- [assistant] hola. sesión cargada...
+- [user] tengo un gato llamado mishi
+- [assistant] turno 1/10+. continúa.
+- ...
+```
+
+## Cómo funciona
+
+| trigger | cuándo | acción |
+|---|---|---|
+| `every_n_turns` | contador de turnos llega a N | escribe `.handoff/<ts>.md` |
+| `dispose` hook | cierre limpio | escribe handoff (si `on_exit: true`) |
+| `process.once("exit")` | fin de sesión | escribe handoff (guard de 5s evita doble escritura) |
+| `on_start` | carga del plugin | lee el último `.handoff/<ts>.md` y lo inyecta como mensaje sintético |
+
+**Deduplicación:** si un mensaje es idéntico al último del buffer, se descarta.
+
+**Doble escritura:** `dispose` y `process.exit` pueden dispararse juntos. Un guard de 5 segundos evita que se escriban dos handoffs con el mismo contenido.
+
+**Inyección única:** el handoff de inicio se inyecta una sola vez por sesión (en el primer `messages.transform`).
+
+## Hooks del plugin
+
+| hook | propósito |
+|---|---|
+| `experimental.chat.messages.transform` | cuenta turnos del usuario, escribe handoff cada N, inyecta handoff pendiente en la primera llamada |
+| `process.once("exit")` | auto-escritura al cerrar sesión |
+| `dispose` | cleanup (remueve listener, auto-escribe) |
+
+## Skills relacionadas
+
+- **auto-handoff** (incluida en `skills/auto-handoff/`) — override manual: `save` y `load` ahora, sin esperar al próximo trigger automático.
+
+## Detalle técnico
+
+Ver [AGENTS.md](./AGENTS.md) para invariantes, convenciones de código, y notas de implementación.
+
+## Licencia
+
+MIT
