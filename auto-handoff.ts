@@ -143,11 +143,6 @@ const readTemplate = ( handoff: string ): string =>
 const writeTemplate = ( ts: string, reason: string, recentCount: number, messagesBlock: string ): string =>
 	`# Handoff — ${ts}\n\n` +
 	`## Reason\n${reason}\n\n` +
-	`## Resume instructions\n` +
-	`When resuming this session, follow these steps:\n` +
-	`1. Briefly acknowledge the resume (1-2 lines).\n` +
-	`2. Present a short summary of where we left off.\n` +
-	`3. Wait for the user's next instruction.\n\n` +
 	`## Recent messages (last ${recentCount})\n${messagesBlock}\n`;
 
 // ─── Plugin ────────────────────────────────────────────────────────────────
