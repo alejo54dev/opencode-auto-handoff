@@ -129,6 +129,27 @@ function extractText( msg: MessageLike ): string
 		.trim();
 }
 
+// ─── Templates ─────────────────────────────────────────────────────────────
+
+const readTemplate = ( handoff: string ): string =>
+	`[Resume previous session — handoff loaded]\n\n` +
+	`A handoff from a previous session was loaded. Follow these steps:\n` +
+	`1. Briefly acknowledge the resume (1-2 lines).\n` +
+	`2. Present a short summary of where we left off.\n` +
+	`3. Wait for the user's next instruction.\n\n` +
+	`---\n\n` +
+	`${handoff}`;
+
+const writeTemplate = ( ts: string, reason: string, recentCount: number, messagesBlock: string ): string =>
+	`# Handoff — ${ts}\n\n` +
+	`## Reason\n${reason}\n\n` +
+	`## Resume instructions\n` +
+	`When resuming this session, follow these steps:\n` +
+	`1. Briefly acknowledge the resume (1-2 lines).\n` +
+	`2. Present a short summary of where we left off.\n` +
+	`3. Wait for the user's next instruction.\n\n` +
+	`## Recent messages (last ${recentCount})\n${messagesBlock}\n`;
+
 // ─── Plugin ────────────────────────────────────────────────────────────────
 
 export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
@@ -155,10 +176,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 				? recent.map( m => `- [${m.role}] ${m.content.slice( 0, 200 )}` ).join( "\n" )
 				: "(no messages captured)";
 
-			const content =
-				`# Handoff — ${ts}\n\n` +
-				`## Reason\n${reason}\n\n` +
-				`## Recent messages (last ${recent.length})\n${messagesBlock}\n`;
+			const content = writeTemplate( ts, reason, recent.length, messagesBlock );
 
 			mkdirSync( dir, { recursive: true } );
 			writeFileSync( path, content );
@@ -215,7 +233,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 				{
 					output.messages.unshift( {
 						info: { role: "user", id: "handoff-resume" },
-						parts: [ { type: "text", text: `[Handoff from previous session]\n\n${pendingHandoff}` } ],
+						parts: [ { type: "text", text: readTemplate( pendingHandoff ) } ],
 					} as MessageLike );
 					handoffInjected = true;
 					logger.log( "info", "Handoff injected into context" );
