@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.20
+*	@version 1.0.21
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
