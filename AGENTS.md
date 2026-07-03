@@ -89,6 +89,7 @@ periodic (10 turns)
 - Version: always patch bump (`1.1.x`). No minor/major bumps.
 - No comments unless asked.
 - English-only artifacts.
+- **Docblock lines: NO leading space before `*`.** Format is `*\t<tag>` (tab after asterisk), never ` *\t<tag>`. This applies to ALL `/** ... */` blocks in `.ts` files.
 
 ## Key invariants
 

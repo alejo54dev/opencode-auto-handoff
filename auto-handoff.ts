@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.1.1
+*	@version 1.0.7
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -118,7 +118,7 @@ function mergeOptions( fileCfg: AutoHandoffOptions, raw?: PluginOptions ): typeo
 
 function timestamp(): string
 {
-	return new Date().toISOString().replace( /[:.]/g, "-" ).slice( 0, 16 );
+	return new Date().toISOString().replace( "T", "-" ).replace( /[:.]/g, "-" ).slice( 0, 16 );
 }
 
 interface MessageLike
@@ -161,20 +161,18 @@ function sliceKeepLast( text: string, n: number ): string
 {
 	const lines = text.split( "\n" );
 	const headerIdx = lines.findIndex( l => l.startsWith( "## Recent messages" ) );
-
 	if ( headerIdx === -1 ) return text;
 
 	const headerEnd = headerIdx + 2;
 	const body = lines.slice( headerEnd, headerEnd + n );
-
 	return [ ...lines.slice( 0, headerEnd ), ...body ].join( "\n" );
 }
 
 // ─── Templates ─────────────────────────────────────────────────────────────
 
-const systemTemplate = ( handoff: string ): string =>
-	`=== MANDATORY: RESUME PREVIOUS SESSION ===\n\n` +
-	`A handoff from a previous session was loaded. You MUST follow these steps in your FIRST response, before answering anything else:\n` +
+const readTemplate = ( handoff: string ): string =>
+	`[Resume previous session — handoff loaded]\n\n` +
+	`A handoff from a previous session was loaded. Follow these steps:\n` +
 	`1. Briefly acknowledge the resume (1-2 lines).\n` +
 	`2. Present a structured summary using these sections:\n` +
 	`   - **Where we left off**: 1-2 sentences on the last task/state.\n` +
@@ -182,10 +180,8 @@ const systemTemplate = ( handoff: string ): string =>
 	`   - **Key context**: names, files, decisions, constraints mentioned.\n` +
 	`   - **Recent activity**: brief recap of the last few messages.\n` +
 	`3. Wait for the user's next instruction.\n\n` +
-	`Do NOT respond with a generic greeting. The handoff content below is the authoritative context for this session.\n\n` +
-	`=== HANDOFF CONTENT ===\n\n` +
-	`${handoff}\n\n` +
-	`=== END HANDOFF ===`;
+	`---\n\n` +
+	`${handoff}`;
 
 const writeTemplate = ( ts: string, reason: string, recentCount: number, messagesBlock: string ): string =>
 	`# Handoff — ${ts}\n\n` +
@@ -200,13 +196,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 	const logger = new Logger( opts.log_level );
 	const projectDir = ctx.directory;
 
-	type BufferedMessage = {
-		role: "user" | "assistant";
-		content: string;
-		source: "real" | "injected";
-	};
-
-	const messages: BufferedMessage[] = [];
+	const messages: Array<{ role: string; content: string }> = [];
 
 	let lastWriteTime = 0;
 	let pendingHandoff: string | null = null;
@@ -220,8 +210,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 			const dir = join( projectDir, ".handoff" );
 			const path = join( dir, `${ts}.md` );
 
-			const realMessages = messages.filter( m => m.source === "real" );
-			const recent = realMessages.slice( -opts.keep_last );
+			const recent = messages.slice( -opts.keep_last );
 
 			const messagesBlock = recent.length > 0
 				? recent.map( m => `- [${m.role}] ${m.content.slice( 0, 200 )}` ).join( "\n" )
@@ -271,7 +260,6 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 					.join( "\n\n---\n\n" );
 
 				pendingHandoff = sliceKeepLast( stack, opts.keep_last );
-
 				logger.log( "info", `Handoff loaded: ${loadCount} file(s), sliced to ${opts.keep_last} entries` );
 			}
 		}
@@ -284,51 +272,42 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 	logger.log( "info", `Initialized | project: ${projectDir} | cfg: ${JSON.stringify( opts )}` );
 
 	return {
-		"experimental.chat.system.transform": async ( _input, output ) =>
-		{
-			try
-			{
-				if ( pendingHandoff && !handoffInjected )
-				{
-					output.system.push( systemTemplate( pendingHandoff ) );
-					handoffInjected = true;
-					messages.length = 0;
-					logger.log( "info", "Handoff injected into system prompt" );
-				}
-			}
-			catch ( err )
-			{
-				logger.log( "error", "system.transform:", ( err as Error ).message );
-			}
-		},
-
 		"experimental.chat.messages.transform": async ( _input, output ) =>
 		{
 			try
 			{
+				if ( pendingHandoff && !handoffInjected && output.messages )
+				{
+					output.messages.unshift( {
+						info: { role: "user", id: "handoff-resume" },
+						parts: [ { type: "text", text: readTemplate( pendingHandoff ) } ],
+					} as MessageLike );
+
+					handoffInjected = true;
+					messages.length = 0;
+
+					logger.log( "info", "Handoff injected into context" );
+				}
+
 				if ( !output.messages?.length ) return;
 
 				for ( const msg of output.messages )
 				{
+					if ( msg.info.role !== "user" ) continue;
+
 					const text = extractText( msg as MessageLike );
 					if ( !text ) continue;
 
 					const last = messages[ messages.length - 1 ];
-					if ( last && last.role === msg.info.role && last.content === text ) continue;
+					if ( last && last.content === text ) continue;
 
-					messages.push( {
-						role: msg.info.role,
-						content: text,
-						source: "real",
-					} );
+					messages.push( { role: "user", content: text } );
 				}
 
-				const realMessages = messages.filter( m => m.source === "real" );
-				const userTurns = realMessages.filter( m => m.role === "user" ).length;
-
-				if ( userTurns > 0 && userTurns % opts.every_turns === 0 )
+				if ( messages.length >= opts.every_turns )
 				{
-					writeHandoff( `periodic (${userTurns} turns)` );
+					writeHandoff( `periodic (${messages.length} turns)` );
+					messages.length = 0;
 				}
 			}
 			catch ( err )

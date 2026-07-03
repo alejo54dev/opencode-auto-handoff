@@ -125,4 +125,4 @@ periodic (20 turns)
 
 ## Licencia
 
-MIT — versión 1.1.0
+MIT — versión 1.1.4
