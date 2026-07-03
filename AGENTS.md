@@ -62,7 +62,7 @@ Logs go to `~/.config/opencode/auto-handoff.log`.
 
 | trigger | when | action |
 |---|---|---|
-| `every_turns` | real user-turn count reaches N | write new `.handoff/<ts>.md` |
+| `every_turns` | message count (user + assistant) reaches N | write new `.handoff/<ts>.md` |
 | `dispose` hook | clean shutdown | write handoff (if `on_exit: true`) |
 | `process.once("exit")` | session ends | write handoff (5s guard prevents double-write with dispose) |
 | `on_start` | plugin load | read latest `.handoff/<ts>.md` files (via `readdirSync`, not glob), inject as system prompt on first system.transform |
@@ -73,7 +73,7 @@ Logs go to `~/.config/opencode/auto-handoff.log`.
 # Handoff — 2026-07-02-1215
 
 ## Reason
-periodic (10 turns)
+periodic (10 messages)
 
 ## Recent messages (last 10)
 - [user] hola
@@ -95,7 +95,7 @@ periodic (10 turns)
 
 - No database — only `.handoff/*.md` files.
 - In-memory message buffer (last N messages) for handoff content.
-- Buffer messages are tagged `source: "real" | "injected"`. Only `real` messages are written to handoffs and counted for `every_turns`.
+- Buffer messages are tagged `role: "user" | "assistant"`. Only the synthetic `handoff-resume` message is excluded from the buffer.
 - Dedup: skip message if identical to last in buffer.
 - `process.once("exit")` registered, removed in `dispose`.
 - 5s time guard prevents double-write between `dispose` and `exit`.
@@ -106,7 +106,7 @@ periodic (10 turns)
 | Hook | Purpose |
 |---|---|
 | `experimental.chat.system.transform` | Inject pending handoff as system prompt on first call |
-| `experimental.chat.messages.transform` | Count real user turns, write handoff every N |
+| `experimental.chat.messages.transform` | Capture user + assistant messages, write handoff every N |
 | `process.once("exit")` | Auto-write on session end |
 | `dispose` | Cleanup (remove listener, auto-write) |
 

@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.8
+ *	@version 1.0.10
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -176,18 +176,32 @@ function sliceKeepLast( text: string, n: number ): string
 
 // ─── Templates ─────────────────────────────────────────────────────────────
 
+// OLD — commented for trial
+// const readTemplate = ( handoff: string ): string =>
+// 	`[Resume previous session — handoff loaded]\n\n` +
+// 	`A handoff from a previous session was loaded. Follow these steps:\n` +
+// 	`1. Briefly acknowledge the resume (1-2 lines).\n` +
+// 	`2. Present a structured summary using these sections:\n` +
+// 	`   - **Where we left off**: 1-2 sentences on the last task/state.\n` +
+// 	`   - **Next step**: what was pending or in progress.\n` +
+// 	`   - **Key context**: names, files, decisions, constraints mentioned.\n` +
+// 	`   - **Recent activity**: brief recap of the last few messages.\n` +
+// 	`3. Wait for the user's next instruction.\n\n` +
+// 	`---\n\n` +
+// 	`${handoff}` +
+// 	`\n\n---` ;
+
 const readTemplate = ( handoff: string ): string =>
-	`[Resume previous session — handoff loaded]\n\n` +
-	`A handoff from a previous session was loaded. Follow these steps:\n` +
-	`1. Briefly acknowledge the resume (1-2 lines).\n` +
-	`2. Present a structured summary using these sections:\n` +
-	`   - **Where we left off**: 1-2 sentences on the last task/state.\n` +
-	`   - **Next step**: what was pending or in progress.\n` +
-	`   - **Key context**: names, files, decisions, constraints mentioned.\n` +
-	`   - **Recent activity**: brief recap of the last few messages.\n` +
-	`3. Wait for the user's next instruction.\n\n` +
+	`## Resume previous session — handoff loaded\n\n` +
+	`A handoff from a previous session was loaded. ` +
+	`Read it and present a structured markdown summary with these sections:\n\n` +
+	`- **Where we left off** — last task/state\n` +
+	`- **Key context** — files, decisions, constraints\n` +
+	`- **Next step** — what was pending\n\n` +
+	`Then wait for the user's next instruction.\n\n` +
 	`---\n\n` +
-	`${handoff}`;
+	`${handoff}` +
+	`\n\n---`;
 
 const writeTemplate = ( ts: string, reason: string, recentCount: number, messagesBlock: string ): string =>
 	`# Handoff — ${ts}\n\n` +
@@ -299,8 +313,8 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 				for ( const msg of output.messages )
 				{
-					if ( msg.info.role !== "user" ) continue;
-					if ( msg.info.id === "handoff-resume" ) continue;
+					// capture both user and assistant messages for the handoff
+					if ( msg.info.role === "user" && msg.info.id === "handoff-resume" ) continue;
 
 					const text = extractText( msg as MessageLike );
 					if ( !text ) continue;
@@ -308,12 +322,12 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 					const last = messages[ messages.length - 1 ];
 					if ( last && last.content === text ) continue;
 
-					messages.push( { role: "user", content: text } );
+					messages.push( { role: msg.info.role, content: text } );
 				}
 
 				if ( messages.length >= opts.every_turns )
 				{
-					writeHandoff( `periodic (${messages.length} turns)` );
+					writeHandoff( `periodic (${messages.length} messages)` );
 					messages.length = 0;
 				}
 			}

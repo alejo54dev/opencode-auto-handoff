@@ -6,7 +6,7 @@ Cada N turnos guarda un snapshot de tu sesión en un `.md`. Al cerrar, guarda ot
 
 ## ¿Qué hace?
 
-- **Guardado periódico** — escribe un handoff cada N turnos del usuario (default: 20)
+- **Guardado periódico** — escribe un handoff cada N mensajes totales (user + assistant, default: 20)
 - **Guardado al salir** — escribe un handoff cuando opencode cierra
 - **Carga al iniciar** — lee los últimos handoffs al cargar el plugin y los inyecta en el system prompt (no como mensaje del usuario)
 
@@ -38,7 +38,7 @@ Archivo: `~/.config/opencode/auto-handoff.json`
 
 | campo | default | qué hace |
 |---|---|---|
-| `every_turns` | `20` | guarda un handoff cada N turnos reales del usuario |
+| `every_turns` | `20` | guarda un handoff cada N mensajes (user + assistant) |
 | `on_exit` | `true` | guarda al cerrar la sesión |
 | `on_start` | `true` | lee los últimos handoffs al iniciar |
 | `keep_last` | `20` | cuántos mensajes recientes incluye cada handoff |
@@ -76,7 +76,7 @@ Cada handoff es un `.md` en `.handoff/<timestamp>.md`:
 # Handoff — 2026-07-02-1215
 
 ## Reason
-periodic (20 turns)
+periodic (20 messages)
 
 ## Recent messages (last 20)
 - [user] hola
@@ -90,14 +90,14 @@ periodic (20 turns)
 
 | trigger | cuándo | acción |
 |---|---|---|
-| `every_turns` | contador de turnos reales llega a N | escribe `.handoff/<ts>.md` |
+| `every_turns` | contador de mensajes (user + assistant) llega a N | escribe `.handoff/<ts>.md` |
 | `dispose` hook | cierre limpio | escribe handoff (si `on_exit: true`) |
 | `process.once("exit")` | fin de sesión | escribe handoff (guard de 5s evita doble escritura) |
 | `on_start` | carga del plugin | lee los últimos `.handoff/<ts>.md` y los inyecta como system prompt |
 
 **Separación contexto/turnos:** el handoff se inyecta como system prompt, no como mensaje del usuario. Esto evita que el template de resume se propague al siguiente handoff (contaminación del buffer).
 
-**Buffer con tagging:** los mensajes en memoria están etiquetados como `real` o `injected`. Solo los `real` se escriben al handoff y se cuentan para `every_turns`.
+**Buffer con tagging:** los mensajes en memoria tienen role `user` o `assistant`. Solo el mensaje sintético de resume (`handoff-resume`) se excluye del buffer.
 
 **Deduplicación:** si un mensaje es idéntico al último del buffer, se descarta.
 
@@ -110,7 +110,7 @@ periodic (20 turns)
 | hook | propósito |
 |---|---|
 | `experimental.chat.system.transform` | inyecta handoff pendiente como system prompt en la primera llamada |
-| `experimental.chat.messages.transform` | cuenta turnos reales del usuario, escribe handoff cada N |
+| `experimental.chat.messages.transform` | captura mensajes user + assistant, escribe handoff cada N |
 | `process.once("exit")` | auto-escritura al cerrar sesión |
 | `dispose` | cleanup (remueve listener, auto-escribe) |
 
