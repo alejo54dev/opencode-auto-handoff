@@ -71,23 +71,34 @@ Logs go to `~/.config/opencode/auto-handoff.log`.
 ## Output format
 
 ```markdown
-# Handoff — 2026-07-02-1215
+# Handoff — 2026-07-03-1430
 
 ## Reason
-periodic (10 messages)
+periodic (20 messages)
 
-## Recent messages (last 10)
+## Task
+- [user] implementar dedup por ID en auto-handoff
+
+## Decisions
+- [user] usar prefijo de rol en las notes
+- [assistant] usar patch-only porque solo revisiones leves
+
+## Next steps
+- [user] verificar que el dedup funciona en sesión real
+- [assistant] actualizar AGENTS.md con la nueva convención
+
+## Recent messages (last 20)
 - [user] hola
 - [assistant] hola. sesión cargada...
-- [user] tengo un gato llamado mishi
-- [assistant] turno 1/10+. continúa.
 - ...
 ```
+
+Notes (`## Task`, `## Decisions`, `## Next steps`) are extracted from user + assistant messages via bullet lists under those headers. Each bullet is prefixed with `[user]` or `[assistant]` to mark its origin. Sections are omitted when empty.
 
 ## Conventions
 
 - Tabs, Allman braces, spaces inside parens/brackets (see `my-coding-preferences` skill).
-- Version: always patch bump (`1.0.x`). No minor/major bumps.
+- Version: minor bump (`1.x.0`) for new features, patch bump (`1.x.y`) for revisions. No major bumps.
 - No comments unless asked.
 - English-only artifacts.
 - **Docblock lines: NO leading space before `*`.** Format is `*\t<tag>` (tab after asterisk), never ` *\t<tag>`. This applies to ALL `/** ... */` blocks in `.ts` files.
@@ -102,6 +113,7 @@ periodic (10 messages)
 - `process.once("exit")` registered, removed in `dispose`.
 - 5s time guard prevents double-write between `dispose` and `exit`.
 - `on_start` reads latest handoff via `readdirSync` (glob fails on `.handoff` dotdir), injects once per session as system prompt (not as user message — prevents template contamination of subsequent handoffs).
+- Notes (Task/Decisions/Next steps) extracted from user + assistant messages via `## Task`, `## Decisions`, `## Next steps` headers with bullet lists. Dedup by `(role, text)`. Cleared on each write.
 
 ## Plugin hooks
 
