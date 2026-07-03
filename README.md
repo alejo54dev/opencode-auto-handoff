@@ -1,20 +1,20 @@
 # Auto Handoff — (tu sesión asegurada)
 
-¿Cerraste opencode y volviste al día siguiente sin contexto? Este plugin te lo devuelve solo.
+Closed opencode and came back the next day without context? This plugin brings it back automatically.
 
-Cada N turnos guarda un snapshot de tu sesión en un `.md`. Al cerrar, guarda otro. Al abrir, lee los más recientes y los inyecta en el system prompt como contexto. Sin comandos, sin palabras clave, sin base de datos — solo archivos de texto que podés leer, versionar o borrar.
+Every N turns it saves a snapshot of your session to a `.md` file. On close, it saves another. On open, it reads the most recent ones and injects them into the system prompt as context. No commands, no keywords, no database — just text files you can read, version, or delete.
 
 ## ¿Qué hace?
 
-- **Guardado periódico** — escribe un handoff cada N mensajes totales (user + assistant, default: 20)
-- **Guardado al salir** — escribe un handoff cuando opencode cierra
-- **Carga al iniciar** — lee los últimos handoffs al cargar el plugin y los inyecta en el system prompt (no como mensaje del usuario)
+- **Periodic save** — writes a handoff every N total messages (user + assistant, default: 20)
+- **Save on exit** — writes a handoff when opencode closes
+- **Load on start** — reads the latest handoffs when the plugin loads and injects them into the system prompt (not as a user message)
 
-Cero palabras clave. Snapshots automáticos + resumen automático.
+Zero keywords. Automatic snapshots + automatic resume.
 
 ## Filosofía
 
-Este handoff habla el mismo idioma que el modelo. Sin parsers custom, sin transformaciones — el formato que el modelo escribe es el formato que otro modelo lee. Roundtrip limpio, sin pérdida de contexto.
+This handoff speaks the same language as the model. No custom parsers, no transformations — the format the model writes is the format another model reads. Clean roundtrip, no context loss.
 
 ## Instalación
 
@@ -22,11 +22,11 @@ Este handoff habla el mismo idioma que el modelo. Sin parsers custom, sin transf
 cp auto-handoff.ts ~/.config/opencode/plugins/
 ```
 
-El plugin se carga solo al iniciar opencode. No requiere registro manual.
+The plugin loads automatically when opencode starts. No manual registration required.
 
 ## Configuración
 
-Archivo: `~/.config/opencode/auto-handoff.json`
+File: `~/.config/opencode/auto-handoff.json`
 
 ```json
 {
@@ -42,15 +42,15 @@ Archivo: `~/.config/opencode/auto-handoff.json`
 
 | campo | default | qué hace |
 |---|---|---|
-| `every_turns` | `20` | guarda un handoff cada N mensajes (user + assistant). `0` = nunca periódico, solo dispose/exit |
-| `on_exit` | `true` | guarda al cerrar la sesión |
-| `on_start` | `true` | lee los últimos handoffs al iniciar |
-| `keep_last` | `20` | cuántos mensajes recientes incluye cada handoff (mínimo 1) |
-| `max_stored_files` | `10` | máximo de archivos `.md` retenidos en `.handoff/` (rotación automática, mínimo 1) |
-| `max_load_files` | `3` | cuántos handoffs recientes se cargan al iniciar (mínimo 1) |
-| `log_level` | `"info"` | nivel de log (`silent`, `info`, `debug`) |
+| `every_turns` | `20` | writes a handoff every N messages (user + assistant). `0` = never periodic, only dispose/exit |
+| `on_exit` | `true` | writes on session close |
+| `on_start` | `true` | reads latest handoffs on start |
+| `keep_last` | `20` | how many recent messages each handoff includes (minimum 1) |
+| `max_stored_files` | `10` | max `.md` files kept in `.handoff/` (auto-rotation, minimum 1) |
+| `max_load_files` | `3` | how many recent handoffs are loaded on start (minimum 1) |
+| `log_level` | `"info"` | log level (`silent`, `info`, `debug`) |
 
-Si el archivo no existe, se usan los defaults.
+If the file doesn't exist, defaults are used.
 
 ## Verificación
 
@@ -58,23 +58,23 @@ Si el archivo no existe, se usan los defaults.
 ls ~/.config/opencode/plugins/auto-handoff.ts
 ```
 
-Debería existir el archivo.
+The file should exist.
 
 ```bash
 ls .handoff/
 ```
 
-Después de usar opencode un rato, deberían aparecer archivos `*.md` (uno por cada handoff guardado).
+After using opencode for a while, `*.md` files should appear (one per saved handoff).
 
 ```bash
 tail -f ~/.config/opencode/auto-handoff.log
 ```
 
-Deberías ver entradas como `Handoff written (periodic|exit|dispose): ...`, `Handoff loaded: ...`, y `Handoff injected into system prompt`.
+You should see entries like `Handoff written (periodic|exit|dispose): ...`, `Handoff loaded: ...`, and `Handoff injected into system prompt`.
 
 ## Formato de salida
 
-Cada handoff es un `.md` en `.handoff/<timestamp>.md`:
+Each handoff is a `.md` file in `.handoff/<timestamp>.md`:
 
 ```markdown
 # Handoff — 2026-07-03-1527
@@ -89,39 +89,39 @@ periodic (21 messages)
 - ...
 ```
 
-Los mensajes se vuelcan en orden cronológico con prefijo `[user]` o `[assistant]` para marcar el rol. El contenido markdown interno de cada mensaje (headers, bold, listas) se preserva tal cual.
+Messages are dumped in chronological order with a `[user]` or `[assistant]` prefix to mark the role. Internal markdown content of each message (headers, bold, lists) is preserved as-is.
 
 ## Cómo funciona
 
 | trigger | cuándo | acción |
 |---|---|---|
-| `every_turns` | contador de mensajes (user + assistant) llega a N | escribe `.handoff/<ts>.md` |
-| `dispose` hook | cierre limpio | escribe handoff (si `on_exit: true`) |
-| `process.once("exit")` | fin de sesión | escribe handoff (guard de 5s evita doble escritura) |
-| `on_start` | carga del plugin | lee los últimos `.handoff/<ts>.md` y los inyecta como system prompt |
+| `every_turns` | message counter (user + assistant) reaches N | writes `.handoff/<ts>.md` |
+| `dispose` hook | clean shutdown | writes handoff (if `on_exit: true`) |
+| `process.once("exit")` | session ends | writes handoff (5s guard prevents double write) |
+| `on_start` | plugin load | reads latest `.handoff/<ts>.md` files and injects them as system prompt |
 
-**Separación contexto/turnos:** el handoff se inyecta como system prompt, no como mensaje del usuario. Esto evita que el template de resume se propague al siguiente handoff (contaminación del buffer).
+**Context/turn separation:** the handoff is injected as system prompt, not as a user message. This prevents the resume template from propagating into the next handoff (buffer contamination).
 
-**Buffer con tagging:** los mensajes en memoria tienen role `user` o `assistant`. Solo el mensaje sintético de resume (`handoff-resume`) se excluye del buffer.
+**Buffer with tagging:** in-memory messages have role `user` or `assistant`. Only the synthetic resume message (`handoff-resume`) is excluded from the buffer.
 
-**Deduplicación:** si un mensaje es idéntico al último del buffer, se descarta. Además, se trackea el último `message.id` visto y se descartan mensajes con `id <= lastSeenMessageId` para evitar re-capturar el historial completo que opencode re-envía en cada turno.
+**Deduplication:** if a message is identical to the last one in the buffer, it's skipped. Additionally, the last `message.id` seen is tracked and messages with `id <= lastSeenMessageId` are discarded to avoid re-capturing the full history that opencode re-sends on every turn.
 
-**Doble escritura:** `dispose` y `process.exit` pueden dispararse juntos. Un guard de 5 segundos evita que se escriban dos handoffs con el mismo contenido.
+**Double write guard:** `dispose` and `process.exit` can fire together. A 5-second guard prevents two handoffs from being written with the same content.
 
-**Inyección única:** el handoff de inicio se inyecta una sola vez por sesión (en el primer `system.transform`).
+**Single injection:** the startup handoff is injected only once per session (on the first `system.transform`).
 
 ## Hooks del plugin
 
 | hook | propósito |
 |---|---|
-| `experimental.chat.system.transform` | inyecta handoff pendiente como system prompt en la primera llamada |
-| `experimental.chat.messages.transform` | captura mensajes user + assistant, escribe handoff cada N |
-| `process.once("exit")` | auto-escritura al cerrar sesión |
-| `dispose` | cleanup (remueve listener, auto-escribe) |
+| `experimental.chat.system.transform` | injects pending handoff as system prompt on first call |
+| `experimental.chat.messages.transform` | captures user + assistant messages, writes handoff every N |
+| `process.once("exit")` | auto-write on session close |
+| `dispose` | cleanup (removes listener, auto-writes) |
 
 ## Notas
 
-- Menos es más. :)
+Less is more. :)
 
 ## Autores
 
@@ -130,4 +130,4 @@ Los mensajes se vuelcan en orden cronológico con prefijo `[user]` o `[assistant
 
 ## Licencia
 
-MIT — versión 1.0.20
+MIT — version 1.0.20
