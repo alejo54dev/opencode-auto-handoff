@@ -12,6 +12,10 @@ Cada N turnos guarda un snapshot de tu sesión en un `.md`. Al cerrar, guarda ot
 
 Cero palabras clave. Snapshots automáticos + resumen automático.
 
+## Filosofía
+
+Este handoff habla el mismo idioma que el modelo. Sin parsers custom, sin transformaciones — el formato que el modelo escribe es el formato que otro modelo lee. Roundtrip limpio, sin pérdida de contexto.
+
 ## Instalación
 
 ```bash
