@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
- *	@version 1.1.5
+*	@version 1.0.12
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -40,7 +40,7 @@ const CONFIG_DIR = `${HOME}/.config/opencode`;
 const CONFIG_FILE = `${CONFIG_DIR}/auto-handoff.json`;
 const LOG_FILE = `${CONFIG_DIR}/auto-handoff.log`;
 
-// ─── Defaults ──────────────────────────────────────────────────────────────
+// ─── Defaults & Config ─────────────────────────────────────────────────────
 
 const DEFAULTS = {
 	every_turns: 20,
@@ -53,38 +53,6 @@ const DEFAULTS = {
 } as const;
 
 type AutoHandoffOptions = Partial<typeof DEFAULTS>;
-
-// ─── Logger ────────────────────────────────────────────────────────────────
-
-class Logger
-{
-	private level: number;
-
-	constructor( level: "silent" | "info" | "debug" )
-	{
-		this.level = { silent: 0, info: 1, debug: 2 }[ level ];
-	}
-
-	log( level: "info" | "debug" | "error", ...args: unknown[] ): void
-	{
-		if ( this.level === 0 ) return;
-		if ( level === "debug" && this.level < 2 ) return;
-
-		const label = level.toUpperCase();
-
-		const msg = args.map( a =>
-			typeof a === "string" ? a : JSON.stringify( a )
-		).join( " " );
-
-		try
-		{
-			appendFileSync( LOG_FILE, `[${new Date().toISOString()}] [${label}]: ${msg}\n` );
-		}
-		catch { /* log write failed — non-fatal */ }
-	}
-}
-
-// ─── Config ────────────────────────────────────────────────────────────────
 
 function loadConfig(): AutoHandoffOptions
 {
@@ -119,6 +87,36 @@ function mergeOptions( fileCfg: AutoHandoffOptions, raw?: PluginOptions ): typeo
 	opts.max_load_files = Math.max( 1, opts.max_load_files! );
 
 	return opts as typeof DEFAULTS;
+}
+
+// ─── Logger ────────────────────────────────────────────────────────────────
+
+class Logger
+{
+	private level: number;
+
+	constructor( level: "silent" | "info" | "debug" )
+	{
+		this.level = { silent: 0, info: 1, debug: 2 }[ level ];
+	}
+
+	log( level: "info" | "debug" | "error", ...args: unknown[] ): void
+	{
+		if ( this.level === 0 ) return;
+		if ( level === "debug" && this.level < 2 ) return;
+
+		const label = level.toUpperCase();
+
+		const msg = args.map( a =>
+			typeof a === "string" ? a : JSON.stringify( a )
+		).join( " " );
+
+		try
+		{
+			appendFileSync( LOG_FILE, `[${new Date().toISOString()}] [${label}]: ${msg}\n` );
+		}
+		catch { /* log write failed — non-fatal */ }
+	}
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
