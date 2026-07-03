@@ -99,7 +99,7 @@ periodic (20 messages)
 
 **Buffer con tagging:** los mensajes en memoria tienen role `user` o `assistant`. Solo el mensaje sintético de resume (`handoff-resume`) se excluye del buffer.
 
-**Deduplicación:** si un mensaje es idéntico al último del buffer, se descarta.
+**Deduplicación:** si un mensaje es idéntico al último del buffer, se descarta. Además, se trackea el último `message.id` visto y se descartan mensajes con `id <= lastSeenMessageId` para evitar re-capturar el historial completo que opencode re-envía en cada turno.
 
 **Doble escritura:** `dispose` y `process.exit` pueden dispararse juntos. Un guard de 5 segundos evita que se escriban dos handoffs con el mismo contenido.
 
@@ -125,4 +125,4 @@ periodic (20 messages)
 
 ## Licencia
 
-MIT — versión 1.0.15
+MIT — versión 1.0.17

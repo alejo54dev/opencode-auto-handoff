@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
- *	@version 1.0.15
+ *	@version 1.0.17
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -62,10 +62,7 @@ function loadConfig(): AutoHandoffOptions
 	{
 		return JSON.parse( readFileSync( CONFIG_FILE, "utf8" ) ) as AutoHandoffOptions;
 	}
-	catch
-	{
-		return {};
-	}
+	catch { return {}; }
 }
 
 function mergeOptions( fileCfg: AutoHandoffOptions, raw?: PluginOptions ): typeof DEFAULTS
@@ -181,21 +178,6 @@ function sliceKeepLast( text: string, n: number ): string
 
 // ─── Templates ─────────────────────────────────────────────────────────────
 
-// OLD — commented for trial
-// const readTemplate = ( handoff: string ): string =>
-// 	`[Resume previous session — handoff loaded]\n\n` +
-// 	`A handoff from a previous session was loaded. Follow these steps:\n` +
-// 	`1. Briefly acknowledge the resume (1-2 lines).\n` +
-// 	`2. Present a structured summary using these sections:\n` +
-// 	`   - **Where we left off**: 1-2 sentences on the last task/state.\n` +
-// 	`   - **Next step**: what was pending or in progress.\n` +
-// 	`   - **Key context**: names, files, decisions, constraints mentioned.\n` +
-// 	`   - **Recent activity**: brief recap of the last few messages.\n` +
-// 	`3. Wait for the user's next instruction.\n\n` +
-// 	`---\n\n` +
-// 	`${handoff}` +
-// 	`\n\n---` ;
-
 const readTemplate = ( handoff: string ): string =>
 	`## Resume previous session — handoff loaded\n\n` +
 	`A handoff from a previous session was loaded. ` +
@@ -222,6 +204,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 	const projectDir = ctx.directory;
 
 	const messages: Array<{ role: string; content: string }> = [];
+	let lastSeenMessageId: string | null = null;
 
 	let lastWriteTime = 0;
 	let pendingHandoff: string | null = null;
@@ -318,8 +301,9 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 				for ( const msg of output.messages )
 				{
-					// capture both user and assistant messages for the handoff
 					if ( msg.info.role === "user" && msg.info.id === "handoff-resume" ) continue;
+
+					if ( msg.info.id && msg.info.id <= ( lastSeenMessageId ?? "" ) ) continue;
 
 					const text = extractText( msg as MessageLike );
 					if ( !text ) continue;
@@ -328,6 +312,8 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 					if ( last && last.content === text ) continue;
 
 					messages.push( { role: msg.info.role, content: text } );
+
+					if ( msg.info.id ) lastSeenMessageId = msg.info.id;
 				}
 
 				if ( opts.every_turns > 0 && messages.length >= opts.every_turns )

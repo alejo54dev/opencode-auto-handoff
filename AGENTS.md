@@ -98,6 +98,7 @@ periodic (10 messages)
 - In-memory message buffer (last N messages) for handoff content.
 - Buffer messages are tagged `role: "user" | "assistant"`. Only the synthetic `handoff-resume` message is excluded from the buffer.
 - Dedup: skip message if identical to last in buffer.
+- ID-based dedup: track `lastSeenMessageId` and skip messages with `id <= lastSeenMessageId` to avoid re-capturing the full history that opencode re-sends on every turn.
 - `process.once("exit")` registered, removed in `dispose`.
 - 5s time guard prevents double-write between `dispose` and `exit`.
 - `on_start` reads latest handoff via `readdirSync` (glob fails on `.handoff` dotdir), injects once per session as system prompt (not as user message — prevents template contamination of subsequent handoffs).
