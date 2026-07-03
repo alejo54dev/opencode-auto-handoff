@@ -1,10 +1,10 @@
-# Auto Handoff — (tu sesión asegurada)
+# Auto Handoff — your session, backed up
 
 Closed opencode and came back the next day without context? This plugin brings it back automatically.
 
 Every N turns it saves a snapshot of your session to a `.md` file. On close, it saves another. On open, it reads the most recent ones and injects them into the system prompt as context. No commands, no keywords, no database — just text files you can read, version, or delete.
 
-## ¿Qué hace?
+## What it does
 
 - **Periodic save** — writes a handoff every N total messages (user + assistant, default: 20)
 - **Save on exit** — writes a handoff when opencode closes
@@ -12,11 +12,11 @@ Every N turns it saves a snapshot of your session to a `.md` file. On close, it 
 
 Zero keywords. Automatic snapshots + automatic resume.
 
-## Filosofía
+## Philosophy
 
 This handoff speaks the same language as the model. No custom parsers, no transformations — the format the model writes is the format another model reads. Clean roundtrip, no context loss.
 
-## Instalación
+## Installation
 
 ```bash
 cp auto-handoff.ts ~/.config/opencode/plugins/
@@ -24,7 +24,7 @@ cp auto-handoff.ts ~/.config/opencode/plugins/
 
 The plugin loads automatically when opencode starts. No manual registration required.
 
-## Configuración
+## Configuration
 
 File: `~/.config/opencode/auto-handoff.json`
 
@@ -40,7 +40,7 @@ File: `~/.config/opencode/auto-handoff.json`
 }
 ```
 
-| campo | default | qué hace |
+| field | default | description |
 |---|---|---|
 | `every_turns` | `20` | writes a handoff every N messages (user + assistant). `0` = never periodic, only dispose/exit |
 | `on_exit` | `true` | writes on session close |
@@ -52,7 +52,7 @@ File: `~/.config/opencode/auto-handoff.json`
 
 If the file doesn't exist, defaults are used.
 
-## Verificación
+## Verification
 
 ```bash
 ls ~/.config/opencode/plugins/auto-handoff.ts
@@ -72,7 +72,7 @@ tail -f ~/.config/opencode/auto-handoff.log
 
 You should see entries like `Handoff written (periodic|exit|dispose): ...`, `Handoff loaded: ...`, and `Handoff injected into system prompt`.
 
-## Formato de salida
+## Output format
 
 Each handoff is a `.md` file in `.handoff/<timestamp>.md`:
 
@@ -91,9 +91,9 @@ periodic (21 messages)
 
 Messages are dumped in chronological order with a `[user]` or `[assistant]` prefix to mark the role. Internal markdown content of each message (headers, bold, lists) is preserved as-is.
 
-## Cómo funciona
+## How it works
 
-| trigger | cuándo | acción |
+| trigger | when | action |
 |---|---|---|
 | `every_turns` | message counter (user + assistant) reaches N | writes `.handoff/<ts>.md` |
 | `dispose` hook | clean shutdown | writes handoff (if `on_exit: true`) |
@@ -110,24 +110,24 @@ Messages are dumped in chronological order with a `[user]` or `[assistant]` pref
 
 **Single injection:** the startup handoff is injected only once per session (on the first `system.transform`).
 
-## Hooks del plugin
+## Plugin hooks
 
-| hook | propósito |
+| hook | purpose |
 |---|---|
 | `experimental.chat.system.transform` | injects pending handoff as system prompt on first call |
 | `experimental.chat.messages.transform` | captures user + assistant messages, writes handoff every N |
 | `process.once("exit")` | auto-write on session close |
 | `dispose` | cleanup (removes listener, auto-writes) |
 
-## Notas
+## Notes
 
 Less is more. :)
 
-## Autores
+## Authors
 
 - Alejandro Carraretto
 - MiniMax-M3
 
-## Licencia
+## License
 
 MIT — version 1.0.20
