@@ -77,28 +77,16 @@ Deberías ver entradas como `Handoff written (periodic|exit|dispose): ...`, `Han
 Cada handoff es un `.md` en `.handoff/<timestamp>.md`:
 
 ```markdown
-# Handoff — 2026-07-03-1430
+# Handoff — 2026-07-03-1527
 
 ## Reason
-periodic (20 messages)
+periodic (21 messages)
 
 - [user] hola
-
-- [assistant] hola. sesión cargada con 3 handoffs previos.
-
-- [user] quiero agregar un comando para forzar handoff manual
-
-- [assistant] ## Plan
-
-**Decisión:** no agregar comando. El plugin ya escribe en `dispose` y `exit`.
-
-**Razón:** KISS — menos superficie, menos bugs. Si necesitás forzar, cerrá la sesión.
-
-**Alternativa considerada:** agregar `/handoff` como slash command. Descartado por YAGNI.
-
-- [user] ok, deploya entonces
-
-- [assistant] Deploy OK. Plugin actualizado en `~/.config/opencode/plugins/auto-handoff.ts`.
+- [assistant] hola. sesión cargada...
+- [user] siguiente mensaje del usuario
+- [assistant] respuesta del assistant
+- ...
 ```
 
 Los mensajes se vuelcan en orden cronológico con prefijo `[user]` o `[assistant]` para marcar el rol. El contenido markdown interno de cada mensaje (headers, bold, listas) se preserva tal cual.
