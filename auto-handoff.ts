@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
- *	@version 1.0.18
+ *	@version 1.0.19
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -120,13 +120,7 @@ class Logger
 
 function timestamp(): string
 {
-	const d = new Date();
-	const y = d.getUTCFullYear();
-	const m = String( d.getUTCMonth() + 1 ).padStart( 2, "0" );
-	const day = String( d.getUTCDate() ).padStart( 2, "0" );
-	const h = String( d.getUTCHours() ).padStart( 2, "0" );
-	const min = String( d.getUTCMinutes() ).padStart( 2, "0" );
-	return `${y}-${m}-${day}-${h}${min}`;
+	return new Date().toISOString().slice( 0, 16 ).replace( 'T', '-' ).replace( ':', '' ) ;
 }
 
 interface MessageLike
@@ -135,65 +129,54 @@ interface MessageLike
 	parts: Array<{ type: string; text?: string }>;
 }
 
-function extractText( msg: MessageLike ): string
-{
-	return ( msg.parts ?? [] )
+const extractText = ( msg: MessageLike ): string =>
+	( msg.parts ?? [] )
 		.filter( p => p.type === "text" && typeof p.text === "string" )
 		.map( p => p.text! )
 		.join( "\n" )
+		.replace( /<system-reminder>[\s\S]*?<\/system-reminder>/g, "" )
 		.trim();
-}
 
-function listHandoffFiles( dir: string ): string[]
-{
-	if ( !existsSync( dir ) ) return [];
-	return readdirSync( dir )
-		.filter( f => f.endsWith( ".md" ) )
-		.sort();
-}
+const extractFeedback = ( content: string ): string =>
+	content
+		.split( "\n" )
+		.filter( line => /^\s*-\s*\[(user|assistant)\]/.test( line ) )
+		.join( "\n" );
 
-function rotateHandoffFiles( dir: string, maxStored: number ): void
+const listHandoffFiles = ( dir: string ): string[] =>
+	existsSync( dir )
+		? readdirSync( dir ).filter( f => f.endsWith( ".md" ) ).sort()
+		: [];
+
+const rotateHandoffFiles = ( dir: string, maxStored: number ): void =>
 {
 	const files = listHandoffFiles( dir );
-	if ( files.length <= maxStored ) return;
-
 	const excess = files.length - maxStored;
-	for ( let i = 0; i < excess; i++ )
+	if ( excess <= 0 ) return;
+
+	files.slice( 0, excess ).forEach( f =>
 	{
-		try { unlinkSync( join( dir, files[ i ] ) ); }
-		catch { /* non-fatal */ }
-	}
-}
-
-function sliceKeepLast( text: string, n: number ): string
-{
-	const lines = text.split( "\n" );
-	const headerIdx = lines.findIndex( l => l.startsWith( "## Recent messages" ) );
-	if ( headerIdx === -1 ) return text;
-
-	const headerEnd = headerIdx + 2;
-	const body = lines.slice( headerEnd, headerEnd + n );
-	return [ ...lines.slice( 0, headerEnd ), ...body ].join( "\n" );
-}
+		try { unlinkSync( join( dir, f ) ); } catch { /* non-fatal */ }
+	} );
+};
 
 // ─── Templates ─────────────────────────────────────────────────────────────
 
 const readTemplate = ( handoff: string ): string =>
 	`## Resume previous session — handoff loaded\n\n` +
-	`A handoff from a previous session was loaded. ` +
-	`Read it and present a structured markdown summary with these sections:\n\n` +
-	`- **Where we left off** — last task/state\n` +
-	`- **Key context** — files, decisions, constraints\n` +
-	`- **Next step** — what was pending\n\n` +
+	`Read it and present a clear, structured markdown summary that covers:\n\n` +
+	`- **Where we left off** — last task and current state\n` +
+	`- **Key context** — files touched, decisions made, constraints discovered\n` +
+	`- **Next step** — what was pending or in progress\n\n` +
 	`Then wait for the user's next instruction.\n\n` +
 	`---\n\n` +
 	`${handoff}` +
 	`\n\n---`;
 
-const writeTemplate = ( ts: string, reason: string, recentCount: number, messagesBlock: string ): string =>
+const writeTemplate = ( ts: string, reason: string, messagesBlock: string ): string =>
 	`# Handoff — ${ts}\n\n` +
 	`## Reason\n${reason}\n\n` +
-	`## Recent messages (last ${recentCount})\n${messagesBlock}\n`;
+	`${messagesBlock}\n`;
 
 // ─── Plugin ────────────────────────────────────────────────────────────────
 
@@ -221,10 +204,10 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 			const recent = messages.slice( -opts.keep_last );
 
 			const messagesBlock = recent.length > 0
-				? recent.map( m => `- [${m.role}] ${m.content.slice( 0, 200 )}` ).join( "\n" )
+				? recent.map( m => `- [${m.role}] ${m.content}` ).join( "\n" )
 				: "(no messages captured)";
 
-			const content = writeTemplate( ts, reason, recent.length, messagesBlock );
+			const content = writeTemplate( ts, reason, messagesBlock );
 
 			mkdirSync( dir, { recursive: true } );
 			writeFileSync( path, content );
@@ -233,7 +216,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 			lastWriteTime = Date.now();
 
-			logger.log( "info", `Handoff written (${reason}): ${path}` );
+			logger.log( "info", `Handoff written (${reason}, ${recent.length} messages): ${path}` );
 		}
 		catch ( err )
 		{
@@ -263,13 +246,14 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 			if ( loadCount > 0 )
 			{
-				const selected = files.slice( -loadCount );
+				const selected = files.slice( -loadCount ).reverse();
 				const stack = selected
-					.map( f => readFileSync( join( dir, f ), "utf8" ) )
+					.map( f => extractFeedback( readFileSync( join( dir, f ), "utf8" ) ) )
+					.filter( block => block.length > 0 )
 					.join( "\n\n---\n\n" );
 
-				pendingHandoff = sliceKeepLast( stack, opts.keep_last );
-				logger.log( "info", `Handoff loaded: ${loadCount} file(s), sliced to ${opts.keep_last} entries` );
+				pendingHandoff = stack;
+				logger.log( "info", `Handoff loaded: ${loadCount} file(s)` );
 			}
 		}
 		catch ( err )
