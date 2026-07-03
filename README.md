@@ -14,7 +14,9 @@ Zero keywords. Automatic snapshots + automatic resume.
 
 ## Philosophy
 
-This handoff speaks the same language as the model. No custom parsers, no transformations — the format the model writes is the format another model reads. Clean roundtrip, no context loss.
+This handoff speaks the same language as the model. The format the model writes is the format another model reads. Clean roundtrip, no context loss.
+
+On load, only the message lines (`- [user]` / `- [assistant]`) are extracted from the saved handoff — headers and metadata are discarded, so only conversation content feeds back into context.
 
 ## Installation
 
@@ -30,7 +32,7 @@ File: `~/.config/opencode/auto-handoff.json`
 
 ```json
 {
-	"every_turns": 20,
+	"every_messages": 20,
 	"on_exit": true,
 	"on_start": true,
 	"keep_last": 20,
@@ -42,7 +44,7 @@ File: `~/.config/opencode/auto-handoff.json`
 
 | field | default | description |
 |---|---|---|
-| `every_turns` | `20` | writes a handoff every N messages (user + assistant). `0` = never periodic, only dispose/exit |
+| `every_messages` | `20` | writes a handoff every N messages (user + assistant). `0` = never periodic, only dispose/exit |
 | `on_exit` | `true` | writes on session close |
 | `on_start` | `true` | reads latest handoffs on start |
 | `keep_last` | `20` | how many recent messages each handoff includes (minimum 1) |
@@ -95,7 +97,7 @@ Messages are dumped in chronological order with a `[user]` or `[assistant]` pref
 
 | trigger | when | action |
 |---|---|---|
-| `every_turns` | message counter (user + assistant) reaches N | writes `.handoff/<ts>.md` |
+| `every_messages` | message counter (user + assistant) reaches N | writes `.handoff/<ts>.md` |
 | `dispose` hook | clean shutdown | writes handoff (if `on_exit: true`) |
 | `process.once("exit")` | session ends | writes handoff (structural dedup via `flushMessages()`) |
 | `on_start` | plugin load | reads latest `.handoff/<ts>.md` files and stores them as `pendingHandoff` |
@@ -129,4 +131,4 @@ Less is more. :)
 
 ## License
 
-MIT — version 1.0.21
+MIT — version 1.0.22

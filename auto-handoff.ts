@@ -1,9 +1,9 @@
 /**
 *	auto-handoff.ts
 *
-*	OpenCode plugin — periodic + exit handoff writer.
-*	Writes .handoff/<timestamp>.md every N user-turns and on session exit.
-*	No keywords, no load — just automatic snapshots.
+*	OpenCode plugin — periodic + exit handoff writer, startup handoff reader.
+*	Writes .handoff/<timestamp>.md every N messages (user + assistant) and on session exit.
+*	Loads handoffs on startup. No keywords, no database.
 *
 *	Install: cp auto-handoff.ts ~/.config/opencode/plugins/auto-handoff.ts
 *	Config:  ~/.config/opencode/auto-handoff.json
@@ -12,17 +12,17 @@
 *
 *	@example ~/.config/opencode/auto-handoff.json
 *	{
-*		"every_turns": 20,
-*		"on_exit": true,
-*		"on_start": true,
-*		"keep_last": 20,
-*		"max_stored_files": 10,
-*		"max_load_files": 3,
-*		"log_level": "info" // silent, info, debug
+*		"every_messages": 20,      // periodic write every N messages (0 = never)
+*		"on_exit": true,        // write on dispose hook + process.once("exit")
+*		"on_start": true,       // load handoffs on startup
+*		"keep_last": 20,        // recent messages per handoff
+*		"max_stored_files": 10, // rotation limit
+*		"max_load_files": 3,    // how many recent handoffs to load
+*		"log_level": "info"     // silent, info, debug
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.21
+*	@version 1.0.22
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -43,7 +43,7 @@ const LOG_FILE = `${CONFIG_DIR}/auto-handoff.log`;
 // ─── Defaults & Config ─────────────────────────────────────────────────────
 
 const DEFAULTS = {
-	every_turns: 20,
+	every_messages: 20,
 	on_exit: true,
 	on_start: true,
 	keep_last: 20,
@@ -311,7 +311,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 					if ( msg.info.id ) lastSeenMessageId = msg.info.id;
 				}
 
-				if ( opts.every_turns > 0 && messages.length >= opts.every_turns )
+				if ( opts.every_messages > 0 && messages.length >= opts.every_messages )
 				{
 					writeHandoff( `periodic (${messages.length} messages)` );
 					flushMessages();
