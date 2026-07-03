@@ -73,29 +73,19 @@ Deberías ver entradas como `Handoff written (periodic|exit|dispose): ...`, `Han
 Cada handoff es un `.md` en `.handoff/<timestamp>.md`:
 
 ```markdown
-# Handoff — 2026-07-03-1430
+# Handoff — 2026-07-03-1527
 
 ## Reason
-periodic (20 messages)
+periodic (21 messages)
 
-## Task
-- [user] implementar dedup por ID en auto-handoff
-
-## Decisions
-- [user] usar prefijo de rol en las notes
-- [assistant] usar patch-only porque solo revisiones leves
-
-## Next steps
-- [user] verificar que el dedup funciona en sesión real
-- [assistant] actualizar AGENTS.md con la nueva convención
-
-## Recent messages (last 20)
 - [user] hola
 - [assistant] hola. sesión cargada...
+- [user] siguiente mensaje del usuario
+- [assistant] respuesta del assistant
 - ...
 ```
 
-Las secciones `## Task`, `## Decisions` y `## Next steps` se extraen automáticamente de los mensajes (user + assistant) que contengan esos headers con bullet lists. Cada bullet lleva prefijo `[user]` o `[assistant]` para marcar su origen. Las secciones se omiten cuando están vacías.
+Los mensajes se vuelcan en orden cronológico con prefijo `[user]` o `[assistant]` para marcar el rol. El contenido markdown interno de cada mensaje (headers, bold, listas) se preserva tal cual.
 
 ## Cómo funciona
 
@@ -111,8 +101,6 @@ Las secciones `## Task`, `## Decisions` y `## Next steps` se extraen automática
 **Buffer con tagging:** los mensajes en memoria tienen role `user` o `assistant`. Solo el mensaje sintético de resume (`handoff-resume`) se excluye del buffer.
 
 **Deduplicación:** si un mensaje es idéntico al último del buffer, se descarta. Además, se trackea el último `message.id` visto y se descartan mensajes con `id <= lastSeenMessageId` para evitar re-capturar el historial completo que opencode re-envía en cada turno.
-
-**Notas explícitas:** los headers `## Task`, `## Decisions` y `## Next steps` dentro de cualquier mensaje se extraen como bullets con prefijo de rol (`[user]` / `[assistant]`). Se deduplican por `(role, text)` y se limpian en cada escritura. Esto permite que vos (o el assistant) registren intención, decisiones y próximos pasos que sobreviven al handoff.
 
 **Doble escritura:** `dispose` y `process.exit` pueden dispararse juntos. Un guard de 5 segundos evita que se escriban dos handoffs con el mismo contenido.
 
