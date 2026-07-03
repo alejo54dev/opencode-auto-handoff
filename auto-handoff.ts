@@ -189,12 +189,21 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 	const messages: Array<{ role: string; content: string }> = [];
 	let lastSeenMessageId: string | null = null;
 
-	let lastWriteTime = 0;
 	let pendingHandoff: string | null = null;
-	let handoffInjected = false;
+
+	const flushMessages = (): void =>
+	{
+		messages.length = 0;
+	};
 
 	const writeHandoff = ( reason: string ): void =>
 	{
+		if ( messages.length === 0 )
+		{
+			logger.log( "debug", `Handoff skipped (no messages): ${reason}` );
+			return;
+		}
+
 		try
 		{
 			const ts = timestamp();
@@ -214,8 +223,6 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 			rotateHandoffFiles( dir, opts.max_stored_files );
 
-			lastWriteTime = Date.now();
-
 			logger.log( "info", `Handoff written (${reason}, ${recent.length} messages): ${path}` );
 		}
 		catch ( err )
@@ -227,10 +234,13 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 	const onExit = (): void =>
 	{
 		if ( !opts.on_exit ) return;
-		if ( Date.now() - lastWriteTime < 5000 ) return;
-		if ( messages.length === 0 ) return;
 
-		try { writeHandoff( "exit" ); } catch { /* non-fatal */ }
+		try
+		{
+			writeHandoff( "exit" );
+			flushMessages();
+		}
+		catch { /* non-fatal */ }
 	};
 
 	process.once( "exit", onExit );
@@ -269,15 +279,15 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 		{
 			try
 			{
-				if ( pendingHandoff && !handoffInjected && output.messages )
+				if ( pendingHandoff !== null && output.messages )
 				{
 					output.messages.unshift( {
 						info: { role: "user", id: "handoff-resume" },
 						parts: [ { type: "text", text: readTemplate( pendingHandoff ) } ],
 					} as MessageLike );
 
-					handoffInjected = true;
-					messages.length = 0;
+					pendingHandoff = null;
+					flushMessages();
 
 					logger.log( "info", "Handoff injected into context" );
 				}
@@ -304,7 +314,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 				if ( opts.every_turns > 0 && messages.length >= opts.every_turns )
 				{
 					writeHandoff( `periodic (${messages.length} messages)` );
-					messages.length = 0;
+					flushMessages();
 				}
 			}
 			catch ( err )
@@ -317,9 +327,14 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 		{
 			process.removeListener( "exit", onExit );
 
-			if ( opts.on_exit && messages.length > 0 )
+			if ( opts.on_exit )
 			{
-				try { writeHandoff( "dispose" ); } catch { /* non-fatal */ }
+				try
+				{
+					writeHandoff( "dispose" );
+					flushMessages();
+				}
+				catch { /* non-fatal */ }
 			}
 			logger.log( "info", "Disposed" );
 		},
