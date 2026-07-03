@@ -10,19 +10,19 @@
 *	Log:     ~/.config/opencode/auto-handoff.log
 *	Output: <project>/.handoff/<timestamp>.md
 *
-*  @example ~/.config/opencode/auto-handoff.json
-*  {
-*      "every_turns": 20,
-*      "on_exit": true,
-*      "on_start": true,
-*      "keep_last": 20,
-*      "max_stored_files": 10,
-*      "max_load_files": 3,
-*      "log_level": "info" // silent, info, debug
-*  }
+*	@example ~/.config/opencode/auto-handoff.json
+*	{
+*		"every_turns": 20,
+*		"on_exit": true,
+*		"on_start": true,
+*		"keep_last": 20,
+*		"max_stored_files": 10,
+*		"max_load_files": 3,
+*		"log_level": "info" // silent, info, debug
+*	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.1.0
+*	@version 1.1.1
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -173,8 +173,8 @@ function sliceKeepLast( text: string, n: number ): string
 // ─── Templates ─────────────────────────────────────────────────────────────
 
 const systemTemplate = ( handoff: string ): string =>
-	`[Resume previous session — handoff loaded]\n\n` +
-	`A handoff from a previous session was loaded. Follow these steps:\n` +
+	`=== MANDATORY: RESUME PREVIOUS SESSION ===\n\n` +
+	`A handoff from a previous session was loaded. You MUST follow these steps in your FIRST response, before answering anything else:\n` +
 	`1. Briefly acknowledge the resume (1-2 lines).\n` +
 	`2. Present a structured summary using these sections:\n` +
 	`   - **Where we left off**: 1-2 sentences on the last task/state.\n` +
@@ -182,8 +182,10 @@ const systemTemplate = ( handoff: string ): string =>
 	`   - **Key context**: names, files, decisions, constraints mentioned.\n` +
 	`   - **Recent activity**: brief recap of the last few messages.\n` +
 	`3. Wait for the user's next instruction.\n\n` +
-	`---\n\n` +
-	`${handoff}`;
+	`Do NOT respond with a generic greeting. The handoff content below is the authoritative context for this session.\n\n` +
+	`=== HANDOFF CONTENT ===\n\n` +
+	`${handoff}\n\n` +
+	`=== END HANDOFF ===`;
 
 const writeTemplate = ( ts: string, reason: string, recentCount: number, messagesBlock: string ): string =>
 	`# Handoff — ${ts}\n\n` +

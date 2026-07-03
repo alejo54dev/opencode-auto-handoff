@@ -86,7 +86,7 @@ periodic (10 turns)
 ## Conventions
 
 - Tabs, Allman braces, spaces inside parens/brackets (see `my-coding-preferences` skill).
-- Version: minor bump (`1.x.0`) for architectural changes (e.g. 1.0.x → 1.1.0 for system-prompt injection refactor); patch bump (`1.1.x`) for fixes.
+- Version: always patch bump (`1.1.x`). No minor/major bumps.
 - No comments unless asked.
 - English-only artifacts.
 
