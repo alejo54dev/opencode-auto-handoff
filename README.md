@@ -138,4 +138,4 @@ Las secciones `## Task`, `## Decisions` y `## Next steps` se extraen automática
 
 ## Licencia
 
-MIT — versión 1.1.0
+MIT — versión 1.0.20
