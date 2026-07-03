@@ -38,7 +38,7 @@ Archivo: `~/.config/opencode/auto-handoff.json`
 
 | campo | default | qué hace |
 |---|---|---|
-| `every_turns` | `20` | guarda un handoff cada N mensajes (user + assistant) |
+| `every_turns` | `20` | guarda un handoff cada N mensajes (user + assistant). `0` = nunca periódico, solo dispose/exit |
 | `on_exit` | `true` | guarda al cerrar la sesión |
 | `on_start` | `true` | lee los últimos handoffs al iniciar |
 | `keep_last` | `20` | cuántos mensajes recientes incluye cada handoff |
@@ -125,4 +125,4 @@ periodic (20 messages)
 
 ## Licencia
 
-MIT — versión 1.1.4
+MIT — versión 1.1.5

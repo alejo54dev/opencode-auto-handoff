@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
- *	@version 1.0.10
+ *	@version 1.1.5
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -325,7 +325,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 					messages.push( { role: msg.info.role, content: text } );
 				}
 
-				if ( messages.length >= opts.every_turns )
+				if ( opts.every_turns > 0 && messages.length >= opts.every_turns )
 				{
 					writeHandoff( `periodic (${messages.length} messages)` );
 					messages.length = 0;
