@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.22
+*	@version 1.0.23
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -237,7 +237,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 		try
 		{
-			writeHandoff( "exit" );
+			writeHandoff( `exit (${messages.length} messages)` );
 			flushMessages();
 		}
 		catch { /* non-fatal */ }
@@ -331,7 +331,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 			{
 				try
 				{
-					writeHandoff( "dispose" );
+					writeHandoff( `dispose (${messages.length} messages)` );
 					flushMessages();
 				}
 				catch { /* non-fatal */ }
