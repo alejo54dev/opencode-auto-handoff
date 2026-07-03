@@ -2,13 +2,13 @@
 
 Closed opencode and came back the next day without context? This plugin brings it back automatically.
 
-Every N turns it saves a snapshot of your session to a `.md` file. On close, it saves another. On open, it reads the most recent ones and injects them into the system prompt as context. No commands, no keywords, no database — just text files you can read, version, or delete.
+Every N turns it saves a snapshot of your session to a `.md` file. On close, it saves another. On open, it reads the most recent ones and injects them as a user message with sentinel `id: "handoff-resume"`. No commands, no keywords, no database — just text files you can read, version, or delete.
 
 ## What it does
 
 - **Periodic save** — writes a handoff every N total messages (user + assistant, default: 20)
 - **Save on exit** — writes a handoff when opencode closes
-- **Load on start** — reads the latest handoffs when the plugin loads and injects them into the system prompt (not as a user message)
+- **Load on start** — reads the latest handoffs when the plugin loads and injects them as a user message with sentinel `id: "handoff-resume"`
 
 Zero keywords. Automatic snapshots + automatic resume.
 
@@ -70,7 +70,7 @@ After using opencode for a while, `*.md` files should appear (one per saved hand
 tail -f ~/.config/opencode/auto-handoff.log
 ```
 
-You should see entries like `Handoff written (periodic|exit|dispose): ...`, `Handoff loaded: ...`, and `Handoff injected into system prompt`.
+You should see entries like `Handoff written (periodic|exit|dispose): ...`, `Handoff loaded: ...`, and `Handoff injected into context`.
 
 ## Output format
 
@@ -97,25 +97,24 @@ Messages are dumped in chronological order with a `[user]` or `[assistant]` pref
 |---|---|---|
 | `every_turns` | message counter (user + assistant) reaches N | writes `.handoff/<ts>.md` |
 | `dispose` hook | clean shutdown | writes handoff (if `on_exit: true`) |
-| `process.once("exit")` | session ends | writes handoff (5s guard prevents double write) |
-| `on_start` | plugin load | reads latest `.handoff/<ts>.md` files and injects them as system prompt |
+| `process.once("exit")` | session ends | writes handoff (structural dedup via `flushMessages()`) |
+| `on_start` | plugin load | reads latest `.handoff/<ts>.md` files and stores them as `pendingHandoff` |
 
-**Context/turn separation:** the handoff is injected as system prompt, not as a user message. This prevents the resume template from propagating into the next handoff (buffer contamination).
+**Injection mechanism:** the handoff is injected as a user message with sentinel `id: "handoff-resume"` on the first `messages.transform` call. The synthetic message is excluded from the buffer to prevent template contamination of subsequent handoffs.
 
 **Buffer with tagging:** in-memory messages have role `user` or `assistant`. Only the synthetic resume message (`handoff-resume`) is excluded from the buffer.
 
 **Deduplication:** if a message is identical to the last one in the buffer, it's skipped. Additionally, the last `message.id` seen is tracked and messages with `id <= lastSeenMessageId` are discarded to avoid re-capturing the full history that opencode re-sends on every turn.
 
-**Double write guard:** `dispose` and `process.exit` can fire together. A 5-second guard prevents two handoffs from being written with the same content.
+**Structural dedup:** every call site that writes calls `flushMessages()` after, so the next trigger finds `messages.length === 0` and skips with a debug log. No time-based guards.
 
-**Single injection:** the startup handoff is injected only once per session (on the first `system.transform`).
+**Single injection:** the startup handoff is injected only once per session. `pendingHandoff = null` after injection marks it as consumed.
 
 ## Plugin hooks
 
 | hook | purpose |
 |---|---|
-| `experimental.chat.system.transform` | injects pending handoff as system prompt on first call |
-| `experimental.chat.messages.transform` | captures user + assistant messages, writes handoff every N |
+| `experimental.chat.messages.transform` | injects pending handoff (once), captures user + assistant messages, writes handoff every N |
 | `process.once("exit")` | auto-write on session close |
 | `dispose` | cleanup (removes listener, auto-writes) |
 
@@ -130,4 +129,4 @@ Less is more. :)
 
 ## License
 
-MIT — version 1.0.20
+MIT — version 1.0.21
