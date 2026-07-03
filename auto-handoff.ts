@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.7
+*	@version 1.0.8
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -294,6 +294,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 				for ( const msg of output.messages )
 				{
 					if ( msg.info.role !== "user" ) continue;
+					if ( msg.info.id === "handoff-resume" ) continue;
 
 					const text = extractText( msg as MessageLike );
 					if ( !text ) continue;
