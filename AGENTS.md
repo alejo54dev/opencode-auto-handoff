@@ -42,7 +42,8 @@ tail -f ~/.config/opencode/auto-handoff.log
 
 ## Config
 
-Canonical config at `~/.config/opencode/auto-handoff.json`:
+Canonical config at `~/.config/opencode/auto-handoff.json`.
+Values `keep_last`, `max_stored_files`, `max_load_files` clamp to minimum 1.
 
 ```json
 {
@@ -62,7 +63,7 @@ Logs go to `~/.config/opencode/auto-handoff.log`.
 
 | trigger | when | action |
 |---|---|---|
-| `every_turns` | message count (user + assistant) reaches N. `0` = never periodic | write new `.handoff/<ts>.md` |
+| `every_turns` | message count (user + assistant) reaches N. `0` = never periodic (only dispose/exit) | write new `.handoff/<ts>.md` |
 | `dispose` hook | clean shutdown | write handoff (if `on_exit: true`) |
 | `process.once("exit")` | session ends | write handoff (5s guard prevents double-write with dispose) |
 | `on_start` | plugin load | read latest `.handoff/<ts>.md` files (via `readdirSync`, not glob), inject as system prompt on first system.transform |

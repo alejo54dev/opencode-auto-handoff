@@ -41,9 +41,9 @@ Archivo: `~/.config/opencode/auto-handoff.json`
 | `every_turns` | `20` | guarda un handoff cada N mensajes (user + assistant). `0` = nunca periódico, solo dispose/exit |
 | `on_exit` | `true` | guarda al cerrar la sesión |
 | `on_start` | `true` | lee los últimos handoffs al iniciar |
-| `keep_last` | `20` | cuántos mensajes recientes incluye cada handoff |
-| `max_stored_files` | `10` | máximo de archivos `.md` retenidos en `.handoff/` (rotación automática) |
-| `max_load_files` | `3` | cuántos handoffs recientes se cargan al iniciar |
+| `keep_last` | `20` | cuántos mensajes recientes incluye cada handoff (mínimo 1) |
+| `max_stored_files` | `10` | máximo de archivos `.md` retenidos en `.handoff/` (rotación automática, mínimo 1) |
+| `max_load_files` | `3` | cuántos handoffs recientes se cargan al iniciar (mínimo 1) |
 | `log_level` | `"info"` | nivel de log (`silent`, `info`, `debug`) |
 
 Si el archivo no existe, se usan los defaults.

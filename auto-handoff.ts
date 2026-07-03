@@ -111,7 +111,14 @@ function mergeOptions( fileCfg: AutoHandoffOptions, raw?: PluginOptions ): typeo
 			if ( k in DEFAULTS ) ( fromRaw as Record<string, unknown> )[ k ] = v;
 		}
 	}
-	return { ...DEFAULTS, ...fileCfg, ...fromRaw };
+
+	const opts = { ...DEFAULTS, ...fileCfg, ...fromRaw };
+
+	opts.keep_last = Math.max( 1, opts.keep_last! );
+	opts.max_stored_files = Math.max( 1, opts.max_stored_files! );
+	opts.max_load_files = Math.max( 1, opts.max_load_files! );
+
+	return opts as typeof DEFAULTS;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
