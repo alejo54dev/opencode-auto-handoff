@@ -12,7 +12,7 @@
 *
 *	@example ~/.config/opencode/auto-handoff.json
 *	{
-*		"every_messages": 20,      // periodic write every N messages (0 = never)
+*		"every_messages": 20,   // periodic write every N messages (0 = never)
 *		"on_exit": true,        // write on dispose hook + process.once("exit")
 *		"on_start": true,       // load handoffs on startup
 *		"keep_last": 20,        // recent messages per handoff
@@ -223,7 +223,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 			rotateHandoffFiles( dir, opts.max_stored_files );
 
-			logger.log( "info", `Handoff written (${reason}): ${path}` );
+			logger.log( "info", `Handoff written: ${reason}: ${path}` );
 		}
 		catch ( err )
 		{
