@@ -2,7 +2,7 @@
 
 Closed opencode and came back the next day without context? This plugin brings it back automatically.
 
-Every N turns it saves a snapshot of your session to a `.md` file. On close, it saves another. On open, it reads the most recent ones and injects them as a user message with sentinel `id: "handoff-resume"`. No commands, no keywords, no database — just text files you can read, version, or delete.
+Every N messages it saves a snapshot of your session to a `.md` file. On close, it saves another. On open, it reads the most recent ones and injects them as a user message with sentinel `id: "handoff-resume"`. No commands, no keywords, no database — just text files you can read, version, or delete.
 
 ## What it does
 
@@ -106,7 +106,7 @@ Messages are dumped in chronological order with a `[user]` or `[assistant]` pref
 
 **Buffer with tagging:** in-memory messages have role `user` or `assistant`. Only the synthetic resume message (`handoff-resume`) is excluded from the buffer.
 
-**Deduplication:** if a message is identical to the last one in the buffer, it's skipped. Additionally, the last `message.id` seen is tracked and messages with `id <= lastSeenMessageId` are discarded to avoid re-capturing the full history that opencode re-sends on every turn.
+**Deduplication:** if a message is identical to the last one in the buffer, it's skipped. Additionally, the last `message.id` seen is tracked and messages with `id <= lastSeenMessageId` are discarded to avoid re-capturing the full history that opencode re-sends on every message.
 
 **Structural dedup:** every call site that writes calls `flushMessages()` after, so the next trigger finds `messages.length === 0` and skips with a debug log. No time-based guards.
 
