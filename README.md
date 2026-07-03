@@ -2,13 +2,13 @@
 
 ¿Cerraste opencode y volviste al día siguiente sin contexto? Este plugin te lo devuelve solo.
 
-Cada 10 turnos guarda un snapshot de tu sesión en un `.md`. Al cerrar, guarda otro. Al abrir, lee el más reciente y lo inyecta en el contexto como si nunca te hubieras ido. Sin comandos, sin palabras clave, sin base de datos — solo archivos de texto que podés leer, versionar o borrar.
+Cada N turnos guarda un snapshot de tu sesión en un `.md`. Al cerrar, guarda otro. Al abrir, lee los más recientes y los inyecta en el system prompt como contexto. Sin comandos, sin palabras clave, sin base de datos — solo archivos de texto que podés leer, versionar o borrar.
 
 ## ¿Qué hace?
 
-- **Guardado periódico** — escribe un handoff cada N turnos del usuario (default: 10)
+- **Guardado periódico** — escribe un handoff cada N turnos del usuario (default: 20)
 - **Guardado al salir** — escribe un handoff cuando opencode cierra
-- **Carga al iniciar** — lee el último handoff al cargar el plugin y lo inyecta en el contexto como mensaje sintético del usuario
+- **Carga al iniciar** — lee los últimos handoffs al cargar el plugin y los inyecta en el system prompt (no como mensaje del usuario)
 
 Cero palabras clave. Snapshots automáticos + resumen automático.
 
@@ -26,21 +26,25 @@ Archivo: `~/.config/opencode/auto-handoff.json`
 
 ```json
 {
-	"every_n_turns": 10,
+	"every_turns": 20,
 	"on_exit": true,
 	"on_start": true,
-	"recent_messages_count": 10,
+	"keep_last": 20,
+	"max_stored_files": 10,
+	"max_load_files": 3,
 	"log_level": "info"
 }
 ```
 
 | campo | default | qué hace |
 |---|---|---|
-| `every_n_turns` | `10` | guarda un handoff cada N turnos del usuario |
+| `every_turns` | `20` | guarda un handoff cada N turnos reales del usuario |
 | `on_exit` | `true` | guarda al cerrar la sesión |
-| `on_start` | `true` | lee el último handoff al iniciar |
-| `recent_messages_count` | `10` | cuántos mensajes recientes incluye cada handoff |
-| `log_level` | `"info"` | nivel de log (`debug`, `info`, `warn`, `error`) |
+| `on_start` | `true` | lee los últimos handoffs al iniciar |
+| `keep_last` | `20` | cuántos mensajes recientes incluye cada handoff |
+| `max_stored_files` | `10` | máximo de archivos `.md` retenidos en `.handoff/` (rotación automática) |
+| `max_load_files` | `3` | cuántos handoffs recientes se cargan al iniciar |
+| `log_level` | `"info"` | nivel de log (`silent`, `info`, `debug`) |
 
 Si el archivo no existe, se usan los defaults.
 
@@ -62,7 +66,7 @@ Después de usar opencode un rato, deberían aparecer archivos `*.md` (uno por c
 tail -f ~/.config/opencode/auto-handoff.log
 ```
 
-Deberías ver entradas como `Handoff written (periodic|exit|dispose): ...` y `Handoff loaded: ...`.
+Deberías ver entradas como `Handoff written (periodic|exit|dispose): ...`, `Handoff loaded: ...`, y `Handoff injected into system prompt`.
 
 ## Formato de salida
 
@@ -72,13 +76,13 @@ Cada handoff es un `.md` en `.handoff/<timestamp>.md`:
 # Handoff — 2026-07-02-1215
 
 ## Reason
-periodic (10 turns)
+periodic (20 turns)
 
-## Recent messages (last 10)
+## Recent messages (last 20)
 - [user] hola
 - [assistant] hola. sesión cargada...
 - [user] tengo un gato llamado mishi
-- [assistant] turno 1/10+. continúa.
+- [assistant] turno 1/20+. continúa.
 - ...
 ```
 
@@ -86,22 +90,27 @@ periodic (10 turns)
 
 | trigger | cuándo | acción |
 |---|---|---|
-| `every_n_turns` | contador de turnos llega a N | escribe `.handoff/<ts>.md` |
+| `every_turns` | contador de turnos reales llega a N | escribe `.handoff/<ts>.md` |
 | `dispose` hook | cierre limpio | escribe handoff (si `on_exit: true`) |
 | `process.once("exit")` | fin de sesión | escribe handoff (guard de 5s evita doble escritura) |
-| `on_start` | carga del plugin | lee el último `.handoff/<ts>.md` y lo inyecta como mensaje sintético |
+| `on_start` | carga del plugin | lee los últimos `.handoff/<ts>.md` y los inyecta como system prompt |
+
+**Separación contexto/turnos:** el handoff se inyecta como system prompt, no como mensaje del usuario. Esto evita que el template de resume se propague al siguiente handoff (contaminación del buffer).
+
+**Buffer con tagging:** los mensajes en memoria están etiquetados como `real` o `injected`. Solo los `real` se escriben al handoff y se cuentan para `every_turns`.
 
 **Deduplicación:** si un mensaje es idéntico al último del buffer, se descarta.
 
 **Doble escritura:** `dispose` y `process.exit` pueden dispararse juntos. Un guard de 5 segundos evita que se escriban dos handoffs con el mismo contenido.
 
-**Inyección única:** el handoff de inicio se inyecta una sola vez por sesión (en el primer `messages.transform`).
+**Inyección única:** el handoff de inicio se inyecta una sola vez por sesión (en el primer `system.transform`).
 
 ## Hooks del plugin
 
 | hook | propósito |
 |---|---|
-| `experimental.chat.messages.transform` | cuenta turnos del usuario, escribe handoff cada N, inyecta handoff pendiente en la primera llamada |
+| `experimental.chat.system.transform` | inyecta handoff pendiente como system prompt en la primera llamada |
+| `experimental.chat.messages.transform` | cuenta turnos reales del usuario, escribe handoff cada N |
 | `process.once("exit")` | auto-escritura al cerrar sesión |
 | `dispose` | cleanup (remueve listener, auto-escribe) |
 
@@ -116,4 +125,4 @@ periodic (10 turns)
 
 ## Licencia
 
-MIT — versión 1.0.5
+MIT — versión 1.1.0

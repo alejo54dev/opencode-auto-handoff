@@ -10,24 +10,26 @@
 *	Log:     ~/.config/opencode/auto-handoff.log
 *	Output: <project>/.handoff/<timestamp>.md
 *
-*	@example ~/.config/opencode/auto-handoff.json
-*	{
-*		"every_turns": 20,
-*		"on_exit": true,
-*		"on_start": true,
-*		"keep_last": 20,
-*		"log_level": "info" // silent, info, debug
-*	}
+*  @example ~/.config/opencode/auto-handoff.json
+*  {
+*      "every_turns": 20,
+*      "on_exit": true,
+*      "on_start": true,
+*      "keep_last": 20,
+*      "max_stored_files": 10,
+*      "max_load_files": 3,
+*      "log_level": "info" // silent, info, debug
+*  }
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.6
+*	@version 1.1.0
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
 */
 
 import type { Plugin, PluginInput, PluginOptions } from "@opencode-ai/plugin";
-import { mkdirSync, existsSync, appendFileSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
+import { mkdirSync, existsSync, appendFileSync, writeFileSync, readFileSync, readdirSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -45,6 +47,8 @@ const DEFAULTS = {
 	on_exit: true,
 	on_start: true,
 	keep_last: 20,
+	max_stored_files: 10,
+	max_load_files: 3,
 	log_level: "info" as "silent" | "info" | "debug",
 } as const;
 
@@ -67,6 +71,7 @@ class Logger
 		if ( level === "debug" && this.level < 2 ) return;
 
 		const label = level.toUpperCase();
+
 		const msg = args.map( a =>
 			typeof a === "string" ? a : JSON.stringify( a )
 		).join( " " );
@@ -84,6 +89,7 @@ class Logger
 function loadConfig(): AutoHandoffOptions
 {
 	if ( !existsSync( CONFIG_FILE ) ) return {};
+
 	try
 	{
 		return JSON.parse( readFileSync( CONFIG_FILE, "utf8" ) ) as AutoHandoffOptions;
@@ -97,6 +103,7 @@ function loadConfig(): AutoHandoffOptions
 function mergeOptions( fileCfg: AutoHandoffOptions, raw?: PluginOptions ): typeof DEFAULTS
 {
 	const fromRaw: AutoHandoffOptions = {};
+
 	if ( raw && typeof raw === "object" )
 	{
 		for ( const [ k, v ] of Object.entries( raw ) )
@@ -129,9 +136,43 @@ function extractText( msg: MessageLike ): string
 		.trim();
 }
 
+function listHandoffFiles( dir: string ): string[]
+{
+	if ( !existsSync( dir ) ) return [];
+	return readdirSync( dir )
+		.filter( f => f.endsWith( ".md" ) )
+		.sort();
+}
+
+function rotateHandoffFiles( dir: string, maxStored: number ): void
+{
+	const files = listHandoffFiles( dir );
+	if ( files.length <= maxStored ) return;
+
+	const excess = files.length - maxStored;
+	for ( let i = 0; i < excess; i++ )
+	{
+		try { unlinkSync( join( dir, files[ i ] ) ); }
+		catch { /* non-fatal */ }
+	}
+}
+
+function sliceKeepLast( text: string, n: number ): string
+{
+	const lines = text.split( "\n" );
+	const headerIdx = lines.findIndex( l => l.startsWith( "## Recent messages" ) );
+
+	if ( headerIdx === -1 ) return text;
+
+	const headerEnd = headerIdx + 2;
+	const body = lines.slice( headerEnd, headerEnd + n );
+
+	return [ ...lines.slice( 0, headerEnd ), ...body ].join( "\n" );
+}
+
 // ─── Templates ─────────────────────────────────────────────────────────────
 
-const readTemplate = ( handoff: string ): string =>
+const systemTemplate = ( handoff: string ): string =>
 	`[Resume previous session — handoff loaded]\n\n` +
 	`A handoff from a previous session was loaded. Follow these steps:\n` +
 	`1. Briefly acknowledge the resume (1-2 lines).\n` +
@@ -157,7 +198,14 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 	const logger = new Logger( opts.log_level );
 	const projectDir = ctx.directory;
 
-	const messages: Array<{ role: string; content: string }> = [];
+	type BufferedMessage = {
+		role: "user" | "assistant";
+		content: string;
+		source: "real" | "injected";
+	};
+
+	const messages: BufferedMessage[] = [];
+
 	let lastWriteTime = 0;
 	let pendingHandoff: string | null = null;
 	let handoffInjected = false;
@@ -170,7 +218,9 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 			const dir = join( projectDir, ".handoff" );
 			const path = join( dir, `${ts}.md` );
 
-			const recent = messages.slice( -opts.keep_last );
+			const realMessages = messages.filter( m => m.source === "real" );
+			const recent = realMessages.slice( -opts.keep_last );
+
 			const messagesBlock = recent.length > 0
 				? recent.map( m => `- [${m.role}] ${m.content.slice( 0, 200 )}` ).join( "\n" )
 				: "(no messages captured)";
@@ -179,7 +229,11 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 			mkdirSync( dir, { recursive: true } );
 			writeFileSync( path, content );
+
+			rotateHandoffFiles( dir, opts.max_stored_files );
+
 			lastWriteTime = Date.now();
+
 			logger.log( "info", `Handoff written (${reason}): ${path}` );
 		}
 		catch ( err )
@@ -192,8 +246,10 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 	{
 		if ( !opts.on_exit ) return;
 		if ( Date.now() - lastWriteTime < 5000 ) return;
+
 		try { writeHandoff( "exit" ); } catch { /* non-fatal */ }
 	};
+
 	process.once( "exit", onExit );
 
 	if ( opts.on_start )
@@ -201,18 +257,20 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 		try
 		{
 			const dir = join( projectDir, ".handoff" );
-			if ( existsSync( dir ) )
+
+			const files = listHandoffFiles( dir ).reverse();
+			const loadCount = Math.min( opts.max_load_files, files.length );
+
+			if ( loadCount > 0 )
 			{
-				const files = readdirSync( dir )
-					.filter( f => f.endsWith( ".md" ) )
-					.sort()
-					.reverse();
-				if ( files.length > 0 )
-				{
-					const latest = files[ 0 ];
-					pendingHandoff = readFileSync( join( dir, latest ), "utf8" );
-					logger.log( "info", `Handoff loaded: ${latest}` );
-				}
+				const selected = files.slice( 0, loadCount ).reverse();
+				const stack = selected
+					.map( f => readFileSync( join( dir, f ), "utf8" ) )
+					.join( "\n\n---\n\n" );
+
+				pendingHandoff = sliceKeepLast( stack, opts.keep_last );
+
+				logger.log( "info", `Handoff loaded: ${loadCount} file(s), sliced to ${opts.keep_last} entries` );
 			}
 		}
 		catch ( err )
@@ -224,33 +282,48 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 	logger.log( "info", `Initialized | project: ${projectDir} | cfg: ${JSON.stringify( opts )}` );
 
 	return {
+		"experimental.chat.system.transform": async ( _input, output ) =>
+		{
+			try
+			{
+				if ( pendingHandoff && !handoffInjected )
+				{
+					output.system.push( systemTemplate( pendingHandoff ) );
+					handoffInjected = true;
+					messages.length = 0;
+					logger.log( "info", "Handoff injected into system prompt" );
+				}
+			}
+			catch ( err )
+			{
+				logger.log( "error", "system.transform:", ( err as Error ).message );
+			}
+		},
+
 		"experimental.chat.messages.transform": async ( _input, output ) =>
 		{
 			try
 			{
-				if ( pendingHandoff && !handoffInjected && output.messages )
-				{
-					output.messages.unshift( {
-						info: { role: "user", id: "handoff-resume" },
-						parts: [ { type: "text", text: readTemplate( pendingHandoff ) } ],
-					} as MessageLike );
-					handoffInjected = true;
-					messages.length = 0;
-					logger.log( "info", "Handoff injected into context" );
-				}
-
 				if ( !output.messages?.length ) return;
 
 				for ( const msg of output.messages )
 				{
 					const text = extractText( msg as MessageLike );
 					if ( !text ) continue;
+
 					const last = messages[ messages.length - 1 ];
 					if ( last && last.role === msg.info.role && last.content === text ) continue;
-					messages.push( { role: msg.info.role, content: text } );
+
+					messages.push( {
+						role: msg.info.role,
+						content: text,
+						source: "real",
+					} );
 				}
 
-				const userTurns = messages.filter( m => m.role === "user" ).length;
+				const realMessages = messages.filter( m => m.source === "real" );
+				const userTurns = realMessages.filter( m => m.role === "user" ).length;
+
 				if ( userTurns > 0 && userTurns % opts.every_turns === 0 )
 				{
 					writeHandoff( `periodic (${userTurns} turns)` );
@@ -265,6 +338,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 		dispose: async () =>
 		{
 			process.removeListener( "exit", onExit );
+
 			if ( opts.on_exit )
 			{
 				try { writeHandoff( "dispose" ); } catch { /* non-fatal */ }

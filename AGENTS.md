@@ -46,10 +46,12 @@ Canonical config at `~/.config/opencode/auto-handoff.json`:
 
 ```json
 {
-	"every_n_turns": 10,
+	"every_turns": 20,
 	"on_exit": true,
 	"on_start": true,
-	"recent_messages_count": 10,
+	"keep_last": 20,
+	"max_stored_files": 10,
+	"max_load_files": 3,
 	"log_level": "info"
 }
 ```
@@ -60,10 +62,10 @@ Logs go to `~/.config/opencode/auto-handoff.log`.
 
 | trigger | when | action |
 |---|---|---|
-| `every_n_turns` | user-turn count reaches N | write new `.handoff/<ts>.md` |
+| `every_turns` | real user-turn count reaches N | write new `.handoff/<ts>.md` |
 | `dispose` hook | clean shutdown | write handoff (if `on_exit: true`) |
 | `process.once("exit")` | session ends | write handoff (5s guard prevents double-write with dispose) |
-| `on_start` | plugin load | read latest `.handoff/<ts>.md` (via `readdirSync`, not glob), inject as synthetic user message on first transform |
+| `on_start` | plugin load | read latest `.handoff/<ts>.md` files (via `readdirSync`, not glob), inject as system prompt on first system.transform |
 
 ## Output format
 
@@ -84,7 +86,7 @@ periodic (10 turns)
 ## Conventions
 
 - Tabs, Allman braces, spaces inside parens/brackets (see `my-coding-preferences` skill).
-- Version: patch bump only (`1.0.x`) per coding rules.
+- Version: minor bump (`1.x.0`) for architectural changes (e.g. 1.0.x → 1.1.0 for system-prompt injection refactor); patch bump (`1.1.x`) for fixes.
 - No comments unless asked.
 - English-only artifacts.
 
@@ -92,16 +94,18 @@ periodic (10 turns)
 
 - No database — only `.handoff/*.md` files.
 - In-memory message buffer (last N messages) for handoff content.
+- Buffer messages are tagged `source: "real" | "injected"`. Only `real` messages are written to handoffs and counted for `every_turns`.
 - Dedup: skip message if identical to last in buffer.
 - `process.once("exit")` registered, removed in `dispose`.
 - 5s time guard prevents double-write between `dispose` and `exit`.
-- `on_start` reads latest handoff via `readdirSync` (glob fails on `.handoff` dotdir), injects once per session.
+- `on_start` reads latest handoff via `readdirSync` (glob fails on `.handoff` dotdir), injects once per session as system prompt (not as user message — prevents template contamination of subsequent handoffs).
 
 ## Plugin hooks
 
 | Hook | Purpose |
 |---|---|
-| `experimental.chat.messages.transform` | Count user turns, write handoff every N; inject pending handoff on first call |
+| `experimental.chat.system.transform` | Inject pending handoff as system prompt on first call |
+| `experimental.chat.messages.transform` | Count real user turns, write handoff every N |
 | `process.once("exit")` | Auto-write on session end |
 | `dispose` | Cleanup (remove listener, auto-write) |
 
@@ -112,3 +116,4 @@ periodic (10 turns)
 - Do not add database dependency — file-only by design.
 - Do not copy `auto-handoff.ts` to `~/.config/opencode/` root. Only `plugins/` is canonical.
 - Do not duplicate script header info (paths, install, config example) across md files.
+- Do not leave backup files (`.bak`, `.old`, etc.) inside `~/.config/opencode/plugins/`. The plugin loader may pick them up. Backups belong in the workdir or `/tmp/opencode/`.
