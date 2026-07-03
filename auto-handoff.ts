@@ -223,7 +223,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 			rotateHandoffFiles( dir, opts.max_stored_files );
 
-			logger.log( "info", `Handoff written (${reason}, ${recent.length} messages): ${path}` );
+			logger.log( "info", `Handoff written (${reason}): ${path}` );
 		}
 		catch ( err )
 		{
