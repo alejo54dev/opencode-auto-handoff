@@ -87,7 +87,7 @@ periodic (10 messages)
 ## Conventions
 
 - Tabs, Allman braces, spaces inside parens/brackets (see `my-coding-preferences` skill).
-- Version: always patch bump (`1.1.x`). No minor/major bumps.
+- Version: always patch bump (`1.0.x`). No minor/major bumps.
 - No comments unless asked.
 - English-only artifacts.
 - **Docblock lines: NO leading space before `*`.** Format is `*\t<tag>` (tab after asterisk), never ` *\t<tag>`. This applies to ALL `/** ... */` blocks in `.ts` files.

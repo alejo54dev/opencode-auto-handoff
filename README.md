@@ -125,4 +125,4 @@ periodic (20 messages)
 
 ## Licencia
 
-MIT — versión 1.1.5
+MIT — versión 1.0.15
