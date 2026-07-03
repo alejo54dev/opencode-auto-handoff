@@ -1,4 +1,4 @@
-# Auto Handoff — your session, backed up
+# Auto Handoff — your session is safe
 
 Closed opencode and came back the next day without context? This plugin brings it back automatically.
 
