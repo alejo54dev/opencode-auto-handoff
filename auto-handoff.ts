@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
- *	@version 1.0.26
+*	@version 1.0.26
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -70,6 +70,7 @@ interface MessageLike
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
+// Load config from ~/.config/opencode/auto-handoff.json, fall back to defaults
 function loadConfig(): typeof CONFIG
 {
 	let file : Record<string, unknown> = {};
@@ -104,6 +105,7 @@ function loadConfig(): typeof CONFIG
 
 // ─── Logger ────────────────────────────────────────────────────────────────
 
+// Append timestamped entry to ~/.config/opencode/auto-handoff.log
 function log( level : number, message : string ) : void
 {
 	const min = LOG_LEVEL[ ( CONFIG.log_level ?? "info" ).toUpperCase() ] ?? LOG_LEVEL.ERROR ;
@@ -121,11 +123,13 @@ function log( level : number, message : string ) : void
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
+// Generate timestamp for handoff filenames: "2026-07-03-1430"
 function timestamp(): string
 {
 	return new Date().toISOString().slice( 0, 16 ).replace( 'T', '-' ).replace( ':', '' ) ;
 }
 
+// Extract plain text from a MessageLike, stripping <system-reminder> tags
 const extractText = ( msg: MessageLike ): string =>
 	( msg.parts ?? [] )
 		.filter( p => p.type === "text" && typeof p.text === "string" )
@@ -134,6 +138,8 @@ const extractText = ( msg: MessageLike ): string =>
 		.replace( /<system-reminder>[\s\S]*?<\/system-reminder>/g, "" )
 		.trim();
 
+// Parse handoff content returning only message blocks (- [user]/[assistant])
+// with full multi-line body preservation (continuation lines kept)
 const parseFeedback = ( content: string ): string =>
 {
 	const lines = content.split( "\n" );
@@ -156,11 +162,13 @@ const parseFeedback = ( content: string ): string =>
 	return result.join( "\n" );
 };
 
+// List .md files in directory, sorted by filename (oldest first)
 const listHandoffFiles = ( dir: string ): string[] =>
 	existsSync( dir )
 		? readdirSync( dir ).filter( f => f.endsWith( ".md" ) ).sort()
 		: [];
 
+// Remove oldest .md files when count exceeds maxStored (FIFO rotation)
 const rotateHandoffFiles = ( dir: string, maxStored: number ): void =>
 {
 	const files = listHandoffFiles( dir );
@@ -175,6 +183,7 @@ const rotateHandoffFiles = ( dir: string, maxStored: number ): void =>
 
 // ─── Templates ─────────────────────────────────────────────────────────────
 
+// Wrap parsed handoff with session-resume instructions for the model
 const readTemplate = ( handoff: string ): string =>
 	`## Resume previous session — handoff loaded\n\n` +
 	`Read it and present a clear, structured markdown summary that covers:\n\n` +
@@ -187,6 +196,7 @@ const readTemplate = ( handoff: string ): string =>
 	`${handoff}` +
 	`\n\n---`;
 
+// Format handoff output as .md file: header, reason, messages block
 const writeTemplate = ( ts: string, reason: string, messagesBlock: string ): string =>
 	`# Handoff — ${ts}\n\n` +
 	`## Reason\n${reason}\n\n` +
@@ -204,11 +214,13 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 	let pendingHandoff: string | null = null;
 
+	// Clear the in-memory message buffer
 	const flushMessages = (): void =>
 	{
 		messages.length = 0;
 	};
 
+	// Write current messages[] to .handoff/<ts>.md, skip if buffer empty
 	const writeHandoff = ( reason: string ): void =>
 	{
 		if ( messages.length === 0 )
@@ -244,6 +256,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 		}
 	};
 
+	// Handler for process.once("exit"): write handoff if on_exit enabled
 	const onExit = (): void =>
 	{
 		if ( !opts.on_exit ) return;
