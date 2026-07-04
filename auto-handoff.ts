@@ -60,6 +60,14 @@ const CONFIG =
 	log_level: "info" as "silent" | "error" | "info" | "debug",
 };
 
+// ─── Interfaces ────────────────────────────────────────────────────────────
+
+interface MessageLike
+{
+	info: { role: "user" | "assistant"; id?: string };
+	parts: Array<{ type: string; text?: string }>;
+}
+
 // ─── Config ────────────────────────────────────────────────────────────────
 
 function loadConfig(): typeof CONFIG
@@ -109,14 +117,6 @@ function log( level : number, message : string ) : void
 		appendFileSync( LOG_FILE, `[${ new Date().toISOString() }] [${ label }]: ${ message }\n` ) ;
 	}
 	catch {}
-}
-
-// ─── Interfaces ────────────────────────────────────────────────────────────
-
-interface MessageLike
-{
-	info: { role: "user" | "assistant"; id?: string };
-	parts: Array<{ type: string; text?: string }>;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
