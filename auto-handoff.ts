@@ -164,7 +164,8 @@ const readTemplate = ( handoff: string ): string =>
 	`Read it and present a clear, structured markdown summary that covers:\n\n` +
 	`- **Where we left off** — last task and current state\n` +
 	`- **Key context** — files touched, decisions made, constraints discovered\n` +
-	`- **Next step** — what was pending or in progress\n\n` +
+	`- **Next step** — what was pending or in progress\n` +
+	`- **Load skills** — load the prefixed skills\n\n` +
 	`Then wait for the user's next instruction.\n\n` +
 	`---\n\n` +
 	`${handoff}` +
