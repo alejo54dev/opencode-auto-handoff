@@ -49,8 +49,6 @@ const LOG_LEVEL =
 	DEBUG  : 3,
 } as const ;
 
-// ─── Config ────────────────────────────────────────────────────────────────
-
 const CONFIG =
 {
 	every_messages: 20,
@@ -61,6 +59,8 @@ const CONFIG =
 	max_load_files: 3,
 	log_level: "info" as "silent" | "error" | "info" | "debug",
 };
+
+// ─── Config ────────────────────────────────────────────────────────────────
 
 function loadConfig(): typeof CONFIG
 {
