@@ -54,13 +54,17 @@ const CONFIG =
 
 function loadConfig(): typeof CONFIG
 {
-	const file = existsSync( CONFIG_FILE )
-		? ( () =>
-		{
-			try { return JSON.parse( readFileSync( CONFIG_FILE, "utf8" ) ); }
-			catch { return {}; }
-		} )()
-		: {};
+	let file : Record<string, unknown> = {};
+
+	try
+	{
+		file = JSON.parse( readFileSync( CONFIG_FILE, "utf8" ) );
+	}
+	catch
+	{
+		log( LOG_LEVEL.ERROR, `Config not found or parse error at ${ CONFIG_FILE }` ) ;
+		return ;
+	}
 
 	const opts =
 	{
@@ -74,6 +78,8 @@ function loadConfig(): typeof CONFIG
 	} as typeof CONFIG;
 
 	CONFIG.log_level = opts.log_level;
+
+	log( LOG_LEVEL.INFO, "Config loaded" ) ;
 
 	return opts;
 }
