@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
- *	@version 1.0.28
+*	@version 1.0.29
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -68,6 +68,7 @@ const STRIP_PATTERNS =
 	/<thinking>[\s\S]*?<\/thinking>/g,
 	/<tool_result>[\s\S]*?<\/tool_result>/g,
 	/▣\s*(?:DCP|Compression)[\s\S]*/g,
+	/\[Compressed conversation section\][\s\S]*/g,
 ];
 
 // ─── Interfaces ────────────────────────────────────────────────────────────
