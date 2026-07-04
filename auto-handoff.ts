@@ -338,7 +338,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 				{
 					if ( msg.info.role === "user" && msg.info.id === "handoff-resume" ) continue;
 
-					if ( msg.info.id && lastSeenMessageId && Number( msg.info.id ) <= Number( lastSeenMessageId ) ) continue;
+					if ( msg.info.id && msg.info.id <= ( lastSeenMessageId ?? "" ) ) continue;
 
 					const text = extractText( msg as MessageLike );
 					if ( !text ) continue;
