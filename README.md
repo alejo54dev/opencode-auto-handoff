@@ -131,4 +131,4 @@ Less is more. :)
 
 ## License
 
-MIT — version 1.0.23
+MIT — version 1.0.24

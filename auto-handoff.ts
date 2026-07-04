@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.23
+*	@version 1.0.24
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -42,7 +42,7 @@ const LOG_FILE = `${CONFIG_DIR}/auto-handoff.log`;
 
 // ─── Defaults & Config ─────────────────────────────────────────────────────
 
-const DEFAULTS = {
+const CONFIG = {
 	every_messages: 20,
 	on_exit: true,
 	on_start: true,
@@ -52,38 +52,25 @@ const DEFAULTS = {
 	log_level: "info" as "silent" | "info" | "debug",
 } as const;
 
-type AutoHandoffOptions = Partial<typeof DEFAULTS>;
-
-function loadConfig(): AutoHandoffOptions
+function loadConfig(): typeof CONFIG
 {
-	if ( !existsSync( CONFIG_FILE ) ) return {};
-
-	try
-	{
-		return JSON.parse( readFileSync( CONFIG_FILE, "utf8" ) ) as AutoHandoffOptions;
-	}
-	catch { return {}; }
-}
-
-function mergeOptions( fileCfg: AutoHandoffOptions, raw?: PluginOptions ): typeof DEFAULTS
-{
-	const fromRaw: AutoHandoffOptions = {};
-
-	if ( raw && typeof raw === "object" )
-	{
-		for ( const [ k, v ] of Object.entries( raw ) )
+	const file = existsSync( CONFIG_FILE )
+		? ( () =>
 		{
-			if ( k in DEFAULTS ) ( fromRaw as Record<string, unknown> )[ k ] = v;
-		}
-	}
+			try { return JSON.parse( readFileSync( CONFIG_FILE, "utf8" ) ); }
+			catch { return {}; }
+		} )()
+		: {};
 
-	const opts = { ...DEFAULTS, ...fileCfg, ...fromRaw };
-
-	opts.keep_last = Math.max( 1, opts.keep_last! );
-	opts.max_stored_files = Math.max( 1, opts.max_stored_files! );
-	opts.max_load_files = Math.max( 1, opts.max_load_files! );
-
-	return opts as typeof DEFAULTS;
+	return {
+		every_messages:    Math.max( 0, file.every_messages   ?? CONFIG.every_messages   ),
+		on_exit:           file.on_exit                       ?? CONFIG.on_exit           ,
+		on_start:          file.on_start                      ?? CONFIG.on_start          ,
+		keep_last:         Math.max( 1, file.keep_last        ?? CONFIG.keep_last        ),
+		max_stored_files:  Math.max( 1, file.max_stored_files ?? CONFIG.max_stored_files ),
+		max_load_files:    Math.max( 1, file.max_load_files   ?? CONFIG.max_load_files   ),
+		log_level:         file.log_level                     ?? CONFIG.log_level         ,
+	} as typeof CONFIG;
 }
 
 // ─── Logger ────────────────────────────────────────────────────────────────
@@ -182,7 +169,7 @@ const writeTemplate = ( ts: string, reason: string, messagesBlock: string ): str
 
 export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 {
-	const opts = mergeOptions( loadConfig(), rawOptions );
+	const opts = loadConfig();
 	const logger = new Logger( opts.log_level );
 	const projectDir = ctx.directory;
 
