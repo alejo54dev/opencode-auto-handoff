@@ -50,7 +50,7 @@ File: `~/.config/opencode/auto-handoff.json`
 | `keep_last` | `20` | how many recent messages each handoff includes (minimum 1) |
 | `max_stored_files` | `10` | max `.md` files kept in `.handoff/` (auto-rotation, minimum 1) |
 | `max_load_files` | `3` | how many recent handoffs are loaded on start (minimum 1) |
-| `log_level` | `"info"` | log level (`silent`, `info`, `debug`) |
+| `log_level` | `"info"` | log level (`silent`, `error`, `info`, `debug`) |
 
 If the file doesn't exist, defaults are used.
 

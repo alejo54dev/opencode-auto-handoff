@@ -18,7 +18,7 @@
 *		"keep_last": 20,        // recent messages per handoff
 *		"max_stored_files": 10, // rotation limit
 *		"max_load_files": 3,    // how many recent handoffs to load
-*		"log_level": "info"     // silent, info, debug
+*		"log_level": "info"     // silent, error, info, debug
 *	}
 *
 *	@name auto-handoff plugin.
@@ -35,22 +35,22 @@ import { join } from "node:path";
 
 // ─── Paths ─────────────────────────────────────────────────────────────────
 
-const HOME = process.env.HOME || homedir();
-const CONFIG_DIR = `${HOME}/.config/opencode`;
-const CONFIG_FILE = `${CONFIG_DIR}/auto-handoff.json`;
-const LOG_FILE = `${CONFIG_DIR}/auto-handoff.log`;
+const CONFIG_DIR  = join( homedir(), ".config", "opencode" ) ;
+const CONFIG_FILE = join( CONFIG_DIR, "auto-handoff.json" ) ;
+const LOG_FILE    = join( CONFIG_DIR, "auto-handoff.log" ) ;
 
 // ─── Defaults & Config ─────────────────────────────────────────────────────
 
-const CONFIG = {
+const CONFIG =
+{
 	every_messages: 20,
 	on_exit: true,
 	on_start: true,
 	keep_last: 20,
 	max_stored_files: 10,
 	max_load_files: 3,
-	log_level: "info" as "silent" | "info" | "debug",
-} as const;
+	log_level: "info" as "silent" | "error" | "info" | "debug",
+};
 
 function loadConfig(): typeof CONFIG
 {
@@ -62,7 +62,8 @@ function loadConfig(): typeof CONFIG
 		} )()
 		: {};
 
-	return {
+	const opts =
+	{
 		every_messages:    Math.max( 0, file.every_messages   ?? CONFIG.every_messages   ),
 		on_exit:           file.on_exit                       ?? CONFIG.on_exit           ,
 		on_start:          file.on_start                      ?? CONFIG.on_start          ,
@@ -71,36 +72,45 @@ function loadConfig(): typeof CONFIG
 		max_load_files:    Math.max( 1, file.max_load_files   ?? CONFIG.max_load_files   ),
 		log_level:         file.log_level                     ?? CONFIG.log_level         ,
 	} as typeof CONFIG;
+
+	CONFIG.log_level = opts.log_level;
+
+	return opts;
 }
+
+// ─── Constants ─────────────────────────────────────────────────────────────
+
+const LOG_LEVEL =
+{
+	SILENT : 0,
+	ERROR  : 1,
+	INFO   : 2,
+	DEBUG  : 3,
+} as const ;
 
 // ─── Logger ────────────────────────────────────────────────────────────────
 
-class Logger
+function log( level : number, message : string ) : void
 {
-	private level: number;
+	const min = LOG_LEVEL[ ( CONFIG.log_level ?? "info" ).toUpperCase() ] ?? LOG_LEVEL.ERROR ;
 
-	constructor( level: "silent" | "info" | "debug" )
+	if ( level > min ) return ;
+
+	const label = Object.keys( LOG_LEVEL )[ level ] ?? "" ;
+
+	try
 	{
-		this.level = { silent: 0, info: 1, debug: 2 }[ level ];
+		appendFileSync( LOG_FILE, `[${ new Date().toISOString() }] [${ label }]: ${ message }\n` ) ;
 	}
+	catch {}
+}
 
-	log( level: "info" | "debug" | "error", ...args: unknown[] ): void
-	{
-		if ( this.level === 0 ) return;
-		if ( level === "debug" && this.level < 2 ) return;
+// ─── Interfaces ────────────────────────────────────────────────────────────
 
-		const label = level.toUpperCase();
-
-		const msg = args.map( a =>
-			typeof a === "string" ? a : JSON.stringify( a )
-		).join( " " );
-
-		try
-		{
-			appendFileSync( LOG_FILE, `[${new Date().toISOString()}] [${label}]: ${msg}\n` );
-		}
-		catch { /* log write failed — non-fatal */ }
-	}
+interface MessageLike
+{
+	info: { role: "user" | "assistant"; id?: string };
+	parts: Array<{ type: string; text?: string }>;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -108,12 +118,6 @@ class Logger
 function timestamp(): string
 {
 	return new Date().toISOString().slice( 0, 16 ).replace( 'T', '-' ).replace( ':', '' ) ;
-}
-
-interface MessageLike
-{
-	info: { role: "user" | "assistant"; id?: string };
-	parts: Array<{ type: string; text?: string }>;
 }
 
 const extractText = ( msg: MessageLike ): string =>
@@ -170,7 +174,6 @@ const writeTemplate = ( ts: string, reason: string, messagesBlock: string ): str
 export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 {
 	const opts = loadConfig();
-	const logger = new Logger( opts.log_level );
 	const projectDir = ctx.directory;
 
 	const messages: Array<{ role: string; content: string }> = [];
@@ -187,7 +190,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 	{
 		if ( messages.length === 0 )
 		{
-			logger.log( "debug", `Handoff skipped (no messages): ${reason}` );
+			log( LOG_LEVEL.DEBUG, `Handoff skipped (no messages): ${reason}` );
 			return;
 		}
 
@@ -210,11 +213,11 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 			rotateHandoffFiles( dir, opts.max_stored_files );
 
-			logger.log( "info", `Handoff written: ${reason}: ${path}` );
+			log( LOG_LEVEL.INFO, `Handoff written: ${reason}: ${path}` );
 		}
 		catch ( err )
 		{
-			logger.log( "error", "write failed:", ( err as Error ).message );
+			log( LOG_LEVEL.ERROR, `write failed: ${( err as Error ).message}` );
 		}
 	};
 
@@ -250,16 +253,16 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 					.join( "\n\n---\n\n" );
 
 				pendingHandoff = stack;
-				logger.log( "info", `Handoff loaded: ${loadCount} file(s)` );
+				log( LOG_LEVEL.INFO, `Handoff loaded: ${loadCount} file(s)` );
 			}
 		}
 		catch ( err )
 		{
-			logger.log( "error", "on_start load failed:", ( err as Error ).message );
+			log( LOG_LEVEL.ERROR, `on_start load failed: ${( err as Error ).message}` );
 		}
 	}
 
-	logger.log( "info", `Initialized | project: ${projectDir} | cfg: ${JSON.stringify( opts )}` );
+	log( LOG_LEVEL.INFO, `Initialized | project: ${projectDir} | cfg: ${JSON.stringify( opts )}` );
 
 	return {
 		"experimental.chat.messages.transform": async ( _input, output ) =>
@@ -276,7 +279,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 					pendingHandoff = null;
 					flushMessages();
 
-					logger.log( "info", "Handoff injected into context" );
+					log( LOG_LEVEL.INFO, "Handoff injected into context" );
 				}
 
 				if ( !output.messages?.length ) return;
@@ -306,7 +309,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 			}
 			catch ( err )
 			{
-				logger.log( "error", "messages.transform:", ( err as Error ).message );
+				log( LOG_LEVEL.ERROR, `messages.transform: ${( err as Error ).message}` );
 			}
 		},
 
@@ -323,7 +326,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 				}
 				catch { /* non-fatal */ }
 			}
-			logger.log( "info", "Disposed" );
+			log( LOG_LEVEL.INFO, "Disposed" );
 		},
 	};
 } ) satisfies Plugin;
