@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.26
+*	@version 1.0.27
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -84,15 +84,14 @@ interface MessageLike
 function loadConfig(): typeof CONFIG
 {
 	let file : Record<string, unknown> = {};
-
 	try
 	{
 		file = JSON.parse( readFileSync( CONFIG_FILE, "utf8" ) );
+		log( LOG_LEVEL.INFO, "Config loaded" ) ;
 	}
 	catch
 	{
 		log( LOG_LEVEL.ERROR, `Config not found or parse error at ${ CONFIG_FILE }` ) ;
-		return ;
 	}
 
 	const opts =
@@ -107,8 +106,6 @@ function loadConfig(): typeof CONFIG
 	} as typeof CONFIG;
 
 	CONFIG.log_level = opts.log_level;
-
-	log( LOG_LEVEL.INFO, "Config loaded" ) ;
 
 	return opts;
 }
@@ -340,7 +337,7 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 				{
 					if ( msg.info.role === "user" && msg.info.id === "handoff-resume" ) continue;
 
-					if ( msg.info.id && msg.info.id <= ( lastSeenMessageId ?? "" ) ) continue;
+					if ( msg.info.id && lastSeenMessageId && Number( msg.info.id ) <= Number( lastSeenMessageId ) ) continue;
 
 					const text = extractText( msg as MessageLike );
 					if ( !text ) continue;
