@@ -39,7 +39,17 @@ const CONFIG_DIR  = join( homedir(), ".config", "opencode" ) ;
 const CONFIG_FILE = join( CONFIG_DIR, "auto-handoff.json" ) ;
 const LOG_FILE    = join( CONFIG_DIR, "auto-handoff.log" ) ;
 
-// ─── Defaults & Config ─────────────────────────────────────────────────────
+// ─── Constants ─────────────────────────────────────────────────────────────
+
+const LOG_LEVEL =
+{
+	SILENT : 0,
+	ERROR  : 1,
+	INFO   : 2,
+	DEBUG  : 3,
+} as const ;
+
+// ─── Config ────────────────────────────────────────────────────────────────
 
 const CONFIG =
 {
@@ -83,16 +93,6 @@ function loadConfig(): typeof CONFIG
 
 	return opts;
 }
-
-// ─── Constants ─────────────────────────────────────────────────────────────
-
-const LOG_LEVEL =
-{
-	SILENT : 0,
-	ERROR  : 1,
-	INFO   : 2,
-	DEBUG  : 3,
-} as const ;
 
 // ─── Logger ────────────────────────────────────────────────────────────────
 
