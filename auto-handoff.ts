@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.27
+ *	@version 1.0.28
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -204,6 +204,7 @@ const readTemplate = ( handoff: string ): string =>
 	`- **Key context** — files touched, decisions made, constraints discovered\n` +
 	`- **Next step** — what was pending or in progress\n` +
 	`- **Load skills** — load the prefixed skills\n\n` +
+	`The handoff above is the complete record. Do NOT read .handoff/ files or run git/project inspection commands — everything you need is already in context.\n\n` +
 	`Then wait for the user's next instruction.\n\n` +
 	`---\n\n` +
 	`${handoff}` +
