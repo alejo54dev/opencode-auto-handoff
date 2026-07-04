@@ -16,7 +16,7 @@ Zero keywords. Automatic snapshots + automatic resume.
 
 This handoff speaks the same language as the model. The format the model writes is the format another model reads. Clean roundtrip, no context loss.
 
-On load, only the message lines (`- [user]` / `- [assistant]`) are extracted from the saved handoff — headers and metadata are discarded, so only conversation content feeds back into context.
+On load, `parseFeedback` extracts message lines (`- [user]` / `- [assistant]`) with full multi-line body preservation — headers and metadata are discarded, so only complete conversation content feeds back into context.
 
 ## Installation
 
@@ -100,7 +100,7 @@ Messages are dumped in chronological order with a `[user]` or `[assistant]` pref
 | `every_messages` | message counter (user + assistant) reaches N | writes `.handoff/<ts>.md` |
 | `dispose` hook | clean shutdown | writes handoff (if `on_exit: true`) |
 | `process.once("exit")` | session ends | writes handoff (structural dedup via `flushMessages()`) |
-| `on_start` | plugin load | reads latest `.handoff/<ts>.md` files and stores them as `pendingHandoff` |
+| `on_start` | plugin load | reads latest `.handoff/<ts>.md` files (chronological order, oldest first), extracts full messages via `parseFeedback()`, stores as `pendingHandoff` |
 
 **Injection mechanism:** the handoff is injected as a user message with sentinel `id: "handoff-resume"` on the first `messages.transform` call. The synthetic message is excluded from the buffer to prevent template contamination of subsequent handoffs.
 
@@ -131,4 +131,4 @@ Less is more. :)
 
 ## License
 
-MIT — version 1.0.25
+MIT — version 1.0.26

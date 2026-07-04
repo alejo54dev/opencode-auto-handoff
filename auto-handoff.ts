@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.25
+ *	@version 1.0.26
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -134,11 +134,27 @@ const extractText = ( msg: MessageLike ): string =>
 		.replace( /<system-reminder>[\s\S]*?<\/system-reminder>/g, "" )
 		.trim();
 
-const extractFeedback = ( content: string ): string =>
-	content
-		.split( "\n" )
-		.filter( line => /^\s*-\s*\[(user|assistant)\]/.test( line ) )
-		.join( "\n" );
+const parseFeedback = ( content: string ): string =>
+{
+	const lines = content.split( "\n" );
+	const result: string[] = [];
+	let inBlock = false;
+
+	for ( const line of lines )
+	{
+		if ( /^\s*-\s*\[(user|assistant)\]/.test( line ) )
+		{
+			result.push( line );
+			inBlock = true;
+		}
+		else if ( inBlock )
+		{
+			result.push( line );
+		}
+	}
+
+	return result.join( "\n" );
+};
 
 const listHandoffFiles = ( dir: string ): string[] =>
 	existsSync( dir )
@@ -253,9 +269,9 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 			if ( loadCount > 0 )
 			{
-				const selected = files.slice( -loadCount ).reverse();
+				const selected = files.slice( -loadCount );
 				const stack = selected
-					.map( f => extractFeedback( readFileSync( join( dir, f ), "utf8" ) ) )
+					.map( f => parseFeedback( readFileSync( join( dir, f ), "utf8" ) ) )
 					.filter( block => block.length > 0 )
 					.join( "\n\n---\n\n" );
 
