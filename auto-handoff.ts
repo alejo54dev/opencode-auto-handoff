@@ -51,7 +51,7 @@ const LOG_LEVEL =
 
 const CONFIG =
 {
-	every_messages: 20,
+	every_messages: 10,
 	on_exit: true,
 	on_start: true,
 	keep_last: 20,
@@ -59,6 +59,16 @@ const CONFIG =
 	max_load_files: 3,
 	log_level: "info" as "silent" | "error" | "info" | "debug",
 };
+
+const STRIP_PATTERNS =
+[
+	/<dcp-message-id>[\s\S]*?<\/dcp-message-id>/g,
+	/<system-reminder>[\s\S]*?<\/system-reminder>/g,
+	/<system>[\s\S]*?<\/system>/g,
+	/<thinking>[\s\S]*?<\/thinking>/g,
+	/<tool_result>[\s\S]*?<\/tool_result>/g,
+	/▣\s*(?:DCP|Compression)[\s\S]*/g,
+];
 
 // ─── Interfaces ────────────────────────────────────────────────────────────
 
@@ -87,7 +97,7 @@ function loadConfig(): typeof CONFIG
 
 	const opts =
 	{
-		every_messages:    Math.max( 0, file.every_messages   ?? CONFIG.every_messages   ),
+		every_messages:    Math.max( 0, file.every_messages ?? file.every_turns ?? CONFIG.every_messages ),
 		on_exit:           file.on_exit                       ?? CONFIG.on_exit           ,
 		on_start:          file.on_start                      ?? CONFIG.on_start          ,
 		keep_last:         Math.max( 1, file.keep_last        ?? CONFIG.keep_last        ),
@@ -129,14 +139,20 @@ function timestamp(): string
 	return new Date().toISOString().slice( 0, 16 ).replace( 'T', '-' ).replace( ':', '' ) ;
 }
 
-// Extract plain text from a MessageLike, stripping <system-reminder> tags
+// Extract plain text from a MessageLike, stripping system tags and compress artifacts
 const extractText = ( msg: MessageLike ): string =>
-	( msg.parts ?? [] )
+{
+	const text = ( msg.parts ?? [] )
 		.filter( p => p.type === "text" && typeof p.text === "string" )
 		.map( p => p.text! )
-		.join( "\n" )
-		.replace( /<system-reminder>[\s\S]*?<\/system-reminder>/g, "" )
-		.trim();
+		.join( "\n" );
+
+	let t = text;
+	for ( const p of STRIP_PATTERNS )
+		t = t.replace( p, "" );
+
+	return t.trim();
+};
 
 // Parse handoff content returning only message blocks (- [user]/[assistant])
 // with full multi-line body preservation (continuation lines kept)

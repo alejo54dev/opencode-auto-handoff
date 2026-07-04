@@ -27,24 +27,22 @@ On load, `parseFeedback` extracts message lines (`- [user]` / `- [assistant]`) w
 
 ## 🔄 How it works
 
-```
-                    Messages flow through hook
-                              │
-                              ▼
-┌──────────────────────────────────────────────┐
-│     Message counter hits N → Save handoff    │
-├──────────────────────────────────────────────┤
-│     Session closes / dispose → Save handoff  │
-├──────────────────────────────────────────────┤
-│     Plugin loads → Read .md files            │
-└──────────────────────┬───────────────────────┘
-                       │
-                       ▼
-┌──────────────────────────────────────────────┐
-│     Inject as user message                   │
-│     sentinel: id="handoff-resume"            │
-│     (once per session)                       │
-└──────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["📝 Messages flow through hook"] --> B{"Counter hits N<br/>or session closes?"}
+    B -->|"✅ Yes"| C["💾 Save handoff .md"]
+    C --> D
+    B -->|"❌ No"| D{"Plugin loads?"}
+    D -->|"✅ Yes"| E["📂 Read .md files"]
+    E --> F["📎 Inject as user message<br/>sentinel: id='handoff-resume'<br/>(once per session)"]
+    D -->|"❌ No"| A
+
+    style A fill:#1a1a2e,stroke:#e94560,color:#fff
+    style B fill:#16213e,stroke:#e94560,color:#fff
+    style C fill:#0f3460,stroke:#53a8b6,color:#fff
+    style D fill:#16213e,stroke:#e94560,color:#fff
+    style E fill:#0f3460,stroke:#53a8b6,color:#fff
+    style F fill:#1a1a2e,stroke:#e94560,color:#fff
 ```
 
 | Trigger | When | Action |
