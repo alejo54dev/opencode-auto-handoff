@@ -92,26 +92,6 @@ File: `~/.config/opencode/auto-handoff.json`
 
 If the file doesn't exist, defaults are used.
 
-## ✅ Verification
-
-```bash
-ls ~/.config/opencode/plugins/auto-handoff.ts
-```
-
-The file should exist.
-
-```bash
-ls .handoff/
-```
-
-After using OpenCode for a while, `*.md` files should appear (one per saved handoff).
-
-```bash
-tail -f ~/.config/opencode/auto-handoff.log
-```
-
-You should see entries like `Handoff written (periodic|exit|dispose): ...`, `Handoff loaded: ...`, and `Handoff injected into context`.
-
 ## 📝 Output format
 
 Each handoff is a `.md` file in `.handoff/<timestamp>.md`:
