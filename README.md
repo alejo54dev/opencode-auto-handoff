@@ -33,20 +33,41 @@ On load, `parseFeedback` extracts message lines (`- [user]` / `- [assistant]`) w
 
 ```mermaid
 flowchart TD
-    A["📝 Messages flow through hook"] --> B{"Counter hits N<br/>or session closes?"}
-    B -->|"✅ Yes"| C["💾 Save handoff .md"]
+    A["🔌 Plugin loads"]
+    A --> B{"on_start?"}
+    B -->|"✅ Yes"| C["📂 Read .md files<br/>→ pendingHandoff"]
+    B -->|"❌ No"| D["📝 Messages flow"]
     C --> D
-    B -->|"❌ No"| D{"Plugin loads?"}
-    D -->|"✅ Yes"| E["📂 Read .md files"]
-    E --> F["📎 Inject as user message<br/>between &lt;handoff-resume&gt;<br/>system tags"]
-    D -->|"❌ No"| A
+
+    D --> E{"pendingHandoff?"}
+    E -->|"✅ Yes"| F["📎 Inject &lt;handoff-resume&gt;<br/>→ flush buffer"]
+    E -->|"❌ No"| G["📥 Capture messages"]
+    F --> G
+
+    G --> H{"Counter >=<br/>every_messages?"}
+    H -->|"✅ Yes"| I["💾 Save handoff .md<br/>→ flush buffer"]
+    H -.->|"❌ No"| D
+    I -.-> D
+
+    J["🛑 exit / dispose"]
+    J --> K{"on_exit?"}
+    K -->|"✅ Yes"| L["💾 Save handoff<br/>→ flush"]
+    K -->|"❌ No"| M["🧹 Cleanup"]
+    L --> M
 
     style A fill:#1a1a2e,stroke:#e94560,color:#fff
     style B fill:#16213e,stroke:#e94560,color:#fff
     style C fill:#0f3460,stroke:#53a8b6,color:#fff
-    style D fill:#16213e,stroke:#e94560,color:#fff
-    style E fill:#0f3460,stroke:#53a8b6,color:#fff
-    style F fill:#1a1a2e,stroke:#e94560,color:#fff
+    style D fill:#1a1a2e,stroke:#e94560,color:#fff
+    style E fill:#16213e,stroke:#e94560,color:#fff
+    style F fill:#0f3460,stroke:#53a8b6,color:#fff
+    style G fill:#1a1a2e,stroke:#e94560,color:#fff
+    style H fill:#16213e,stroke:#e94560,color:#fff
+    style I fill:#0f3460,stroke:#53a8b6,color:#fff
+    style J fill:#1a1a2e,stroke:#e94560,color:#fff
+    style K fill:#16213e,stroke:#e94560,color:#fff
+    style L fill:#0f3460,stroke:#53a8b6,color:#fff
+    style M fill:#1a1a2e,stroke:#e94560,color:#fff
 ```
 
 | Trigger | When | Action |
