@@ -87,7 +87,7 @@ The plugin loads automatically when OpenCode starts. No manual registration requ
 
 ## ⚙️ Configuration
 
-File: `~/.config/opencode/auto-handoff.json`
+Copy `auto-handoff.json` (included in this repo) to `~/.config/opencode/` and edit:
 
 ```json
 {
