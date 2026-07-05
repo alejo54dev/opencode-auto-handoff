@@ -4,30 +4,23 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![OpenCode](https://img.shields.io/badge/OpenCode-plugin-purple)
 
-> Closed OpenCode and came back the next day without context? This plugin brings
-> it back automatically. Every N messages it saves a snapshot of your session to
-> a `.md` file. On close, it saves another. On open, it reads the most recent
-> ones and injects them as a user message with sentinel `id: "handoff-resume"`.
-> No commands, no keywords, no database — just text files you can read, version,
-> or delete.
+> Cierras OpenCode, volves al día siguiente, perdiste todo el contexto. Tenés que re-explicar todo desde cero.
 
 ## 💡 What it does
 
-- **Periodic save** — writes a handoff every N total messages (user + assistant, default: 20)
+> Cerrar OpenCode sin perder el hilo.
 
-- **Save on exit** — writes a handoff when OpenCode closes
+- **Guardado automático** — cada N mensajes se vuelca a un .md. Texto plano, legible, versionable.
 
-- **Load on start** — reads the latest handoffs when the plugin loads and injects them as a user message tagged with `<handoff-resume>`
+- **Resurrección automática** — al cerrar guarda, al abrir lee. Todo vuelve a estar como lo dejaste.
 
-Zero keywords. Automatic snapshots + automatic resume.
-
-The injected handoff is wrapped in `<handoff-resume>...</handoff-resume>` XML tags so downstream parsers can identify or filter it.
+- **Sin comandos, sin DB** — solo archivos .md que podes leer, borrar, o subir a git.
 
 ## 🧠 Philosophy
 
-This handoff speaks the same language as the model. The format the model writes is the format another model reads. Clean roundtrip, no context loss.
+El handoff habla el mismo idioma que el modelo. Lo que el modelo escribe, otro modelo lo lee. Sin traducción, sin pérdida.
 
-On load, `parseFeedback` extracts message lines (`- [user]` / `- [assistant]`) with full multi-line body preservation — headers and metadata are discarded, so only complete conversation content feeds back into context.
+Al cargar, `parseFeedback` extrae solo los mensajes — ni headers, ni metadatos, ni basura. Solo conversación pura de vuelta al contexto.
 
 ## 🔄 How it works
 
