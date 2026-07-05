@@ -14,7 +14,9 @@
 ## 💡 What it does
 
 - **Periodic save** — writes a handoff every N total messages (user + assistant, default: 20)
+
 - **Save on exit** — writes a handoff when OpenCode closes
+
 - **Load on start** — reads the latest handoffs when the plugin loads and injects them as a user message with sentinel `id: "handoff-resume"`
 
 Zero keywords. Automatic snapshots + automatic resume.
