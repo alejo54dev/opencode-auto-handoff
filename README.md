@@ -4,23 +4,23 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![OpenCode](https://img.shields.io/badge/OpenCode-plugin-purple)
 
-> Cierras OpenCode, volves al día siguiente, perdiste todo el contexto. Tenés que re-explicar todo desde cero.
+> You close OpenCode, come back the next day, and all context is gone. You have to re-explain everything from scratch.
 
 ## 💡 What it does
 
-> Cerrar OpenCode sin perder el hilo.
+> Close OpenCode without losing the thread.
 
-- **Guardado automático** — cada N mensajes se vuelca a un .md. Texto plano, legible, versionable.
+- **Auto save** — every N messages dumps to a .md file. Plain text, readable, versionable.
 
-- **Resurrección automática** — al cerrar guarda, al abrir lee. Todo vuelve a estar como lo dejaste.
+- **Auto resurrection** — close saves, open reads. Everything is back where you left it.
 
-- **Sin comandos, sin DB** — solo archivos .md que podes leer, borrar, o subir a git.
+- **No commands, no DB** — just .md files you can read, delete, or push to git.
 
 ## 🧠 Philosophy
 
-El handoff habla el mismo idioma que el modelo. Lo que el modelo escribe, otro modelo lo lee. Sin traducción, sin pérdida.
+The handoff speaks the same language as the model. What the model writes, another model reads. No translation, no loss.
 
-Al cargar, `parseFeedback` extrae solo los mensajes — ni headers, ni metadatos, ni basura. Solo conversación pura de vuelta al contexto.
+On load, `parseFeedback` extracts only the messages — no headers, no metadata, no junk. Just pure conversation back into context.
 
 ## 🔄 How it works
 
