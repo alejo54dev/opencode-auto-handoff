@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
- *	@version 1.0.30
+*	@version 1.0.31
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -78,6 +78,7 @@ const STRIP_PATTERNS =
 	/\[Old tool result/g,
 	/▣\s*(?:DCP|Compression)[\s\S]*/g,
 	/\[Compressed[\s\S]*/g,
+	/<handoff-resume>[\s\S]*?<\/handoff-resume>/g,
 ];
 
 // ─── Interfaces ────────────────────────────────────────────────────────────
@@ -106,7 +107,7 @@ function loadConfig(): typeof CONFIG
 
 	const opts =
 	{
-		every_messages:    Math.max( 0, file.every_messages ?? file.every_turns ?? CONFIG.every_messages ),
+		every_messages:    Math.max( 0, file.every_messages   ?? file.every_turns       ?? CONFIG.every_messages ),
 		on_exit:           file.on_exit                       ?? CONFIG.on_exit           ,
 		on_start:          file.on_start                      ?? CONFIG.on_start          ,
 		keep_last:         Math.max( 1, file.keep_last        ?? CONFIG.keep_last        ),
@@ -208,6 +209,7 @@ const rotateHandoffFiles = ( dir: string, maxStored: number ): void =>
 
 // Wrap parsed handoff with session-resume instructions for the model
 const readTemplate = ( handoff: string ): string =>
+	`<handoff-resume>\n\n` +
 	`## Resume previous session — handoff loaded\n\n` +
 	`Read it and present a clear, structured markdown summary that covers:\n\n` +
 	`- **Where we left off** — last task and current state\n` +
@@ -215,10 +217,9 @@ const readTemplate = ( handoff: string ): string =>
 	`- **Next step** — what was pending or in progress\n` +
 	`- **Load skills** — load the prefixed skills\n\n` +
 	`The handoff above is the complete record. Do NOT read .handoff/ files or run git/project inspection commands — everything you need is already in context.\n\n` +
-	`Then wait for the user's next instruction.\n\n` +
 	`---\n\n` +
 	`${handoff}` +
-	`\n\n---`;
+	`\n\n</handoff-resume>`;
 
 // Format handoff output as .md file: header, reason, messages block
 const writeTemplate = ( ts: string, reason: string, messagesBlock: string ): string =>

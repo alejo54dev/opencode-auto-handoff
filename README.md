@@ -1,6 +1,6 @@
 # Auto Handoff — (your session is safe)
 
-![Version](https://img.shields.io/badge/version-1.0.30-blue)
+![Version](https://img.shields.io/badge/version-1.0.31-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![OpenCode](https://img.shields.io/badge/OpenCode-plugin-purple)
 
@@ -18,6 +18,8 @@
 - **Load on start** — reads the latest handoffs when the plugin loads and injects them as a user message with sentinel `id: "handoff-resume"`
 
 Zero keywords. Automatic snapshots + automatic resume.
+
+The injected handoff is wrapped in `<handoff-resume>...</handoff-resume>` XML tags so downstream parsers can identify or filter it.
 
 ## 🧠 Philosophy
 
@@ -146,4 +148,4 @@ Less is more. :)
 
 ## 📄 License
 
-MIT — version 1.0.30
+MIT — version 1.0.31
