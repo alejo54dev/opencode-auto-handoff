@@ -17,7 +17,7 @@
 
 - **Save on exit** — writes a handoff when OpenCode closes
 
-- **Load on start** — reads the latest handoffs when the plugin loads and injects them as a user message with sentinel `id: "handoff-resume"`
+- **Load on start** — reads the latest handoffs when the plugin loads and injects them as a user message tagged with `<handoff-resume>`
 
 Zero keywords. Automatic snapshots + automatic resume.
 
@@ -75,7 +75,7 @@ flowchart TD
 | `every_messages` | message counter (user + assistant) reaches N | writes `.handoff/<ts>.md` |
 | `dispose` hook | clean shutdown | writes handoff (if `on_exit: true`) |
 | `process.once("exit")` | session ends | writes handoff (structural dedup via `flushMessages()`) |
-| `on_start` | plugin load | reads latest `.handoff/<ts>.md` files (chronological order, oldest first), extracts full messages via `parseFeedback()`, stores as `pendingHandoff` |
+| `on_start` | plugin load | reads latest `.handoff/<ts>.md` files, extracts full messages via `parseFeedback()`, stores as `pendingHandoff` |
 
 ## 🚀 Installation
 
