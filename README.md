@@ -1,6 +1,6 @@
 # Auto Handoff — (your session is safe)
 
-![Version](https://img.shields.io/badge/version-1.0.31-blue)
+![Version](https://img.shields.io/badge/version-1.0.33-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![OpenCode](https://img.shields.io/badge/OpenCode-plugin-purple)
 
@@ -80,17 +80,17 @@ The plugin loads automatically when OpenCode starts. No manual registration requ
 
 ## ⚙️ Configuration
 
-Copy `auto-handoff.json` (included in this repo) to `~/.config/opencode/` and edit:
+Copy `auto-handoff.jsonc` (included in this repo) to `~/.config/opencode/` and edit:
 
-```json
+```jsonc
 {
-	"every_messages": 20,
-	"on_exit": true,
-	"on_start": true,
-	"keep_last": 20,
-	"max_stored_files": 10,
-	"max_load_files": 3,
-	"log_level": "info"
+	"every_messages": 20,   // periodic write every N messages (0 = never)
+	"on_exit": true,        // write on dispose hook + process.once("exit")
+	"on_start": true,       // load handoffs on startup
+	"keep_last": 20,        // recent messages per handoff
+	"max_stored_files": 10, // rotation limit
+	"max_load_files": 3,    // how many recent handoffs to load
+	"log_level": "info"     // silent, error, info, debug
 }
 ```
 
@@ -165,4 +165,4 @@ Less is more. :)
 
 ## 📄 License
 
-MIT — version 1.0.31
+MIT — version 1.0.33

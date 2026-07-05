@@ -1,0 +1,9 @@
+{
+	"every_messages": 20,   // periodic write every N messages (0 = never)
+	"on_exit": true,        // write on dispose hook + process.once("exit")
+	"on_start": true,       // load handoffs on startup
+	"keep_last": 20,        // recent messages per handoff
+	"max_stored_files": 10, // rotation limit
+	"max_load_files": 3,    // how many recent handoffs to load
+	"log_level": "info",    // silent, error, info, debug
+}

@@ -6,11 +6,11 @@
 *	Loads handoffs on startup. No keywords, no database.
 *
 *	Install: cp auto-handoff.ts ~/.config/opencode/plugins/auto-handoff.ts
-*	Config:  ~/.config/opencode/auto-handoff.json
-*	Log:     ~/.config/opencode/auto-handoff.log
-*	Output: <project>/.handoff/<timestamp>.md
-*
-*	@example ~/.config/opencode/auto-handoff.json
+ *	Config:  ~/.config/opencode/auto-handoff.jsonc
+ *	Log:     ~/.config/opencode/auto-handoff.log
+ *	Output: <project>/.handoff/<timestamp>.md
+ *
+ *	@example ~/.config/opencode/auto-handoff.jsonc
 *	{
 *		"every_messages": 20,   // periodic write every N messages (0 = never)
 *		"on_exit": true,        // write on dispose hook + process.once("exit")
@@ -18,11 +18,11 @@
 *		"keep_last": 20,        // recent messages per handoff
 *		"max_stored_files": 10, // rotation limit
 *		"max_load_files": 3,    // how many recent handoffs to load
-*		"log_level": "info"     // silent, error, info, debug
+*		"log_level": "info",    // silent, error, info, debug
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.31
+ *	@version 1.0.33
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -36,7 +36,7 @@ import { join } from "node:path";
 // ─── Paths ─────────────────────────────────────────────────────────────────
 
 const CONFIG_DIR  = join( homedir(), ".config", "opencode" ) ;
-const CONFIG_FILE = join( CONFIG_DIR, "auto-handoff.json" ) ;
+const CONFIG_FILE = join( CONFIG_DIR, "auto-handoff.jsonc" ) ;
 const LOG_FILE    = join( CONFIG_DIR, "auto-handoff.log" ) ;
 
 // ─── Constants ─────────────────────────────────────────────────────────────
@@ -92,13 +92,13 @@ interface MessageLike
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
-// Load config from ~/.config/opencode/auto-handoff.json, fall back to defaults
+// Load config from ~/.config/opencode/auto-handoff.jsonc, fall back to defaults
 function loadConfig(): typeof CONFIG
 {
 	let file : Record<string, unknown> = {};
 	try
 	{
-		file = JSON.parse( readFileSync( CONFIG_FILE, "utf8" ) );
+		file = Bun.JSONC.parse( readFileSync( CONFIG_FILE, "utf8" ) );
 		log( LOG_LEVEL.INFO, "Config loaded" ) ;
 	}
 	catch
@@ -331,8 +331,13 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 		{
 			try
 			{
-				if ( pendingHandoff !== null && output.messages )
+				if ( pendingHandoff !== null && output.messages?.length )
 				{
+					const hasRealMessage = output.messages.some(
+						m => m.info?.role === "user" || m.info?.role === "assistant"
+					);
+					if ( !hasRealMessage ) return;
+
 					output.messages.unshift( {
 						info: { role: "user", id: "handoff-resume" },
 						parts: [ { type: "text", text: readTemplate( pendingHandoff ) } ],

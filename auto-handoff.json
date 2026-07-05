@@ -1,9 +1,0 @@
-{
-	"every_messages": 20,
-	"on_exit": true,
-	"on_start": true,
-	"keep_last": 20,
-	"max_stored_files": 10,
-	"max_load_files": 3,
-	"log_level": "info"
-}
