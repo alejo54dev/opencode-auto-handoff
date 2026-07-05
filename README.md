@@ -113,6 +113,27 @@ Copy `auto-handoff.json` (included in this repo) to `~/.config/opencode/` and ed
 
 If the file doesn't exist, defaults are used.
 
+## 🪵 Logs
+
+`~/.config/opencode/auto-handoff.log` (append-only). Format: `[ISO_TIMESTAMP] [LEVEL] message`.
+
+```bash
+tail -f ~/.config/opencode/auto-handoff.log
+```
+
+```log
+[2026-07-05T10:30:00.000Z] [INFO]: Config loaded
+[2026-07-05T10:30:01.000Z] [INFO]: Initialized | project: /home/user/myapp | cfg: {"every_messages":20,...}
+[2026-07-05T10:35:12.000Z] [INFO]: Handoff written: periodic (21 messages): .handoff/2026-07-05-1035.md
+[2026-07-05T10:40:23.000Z] [INFO]: Handoff loaded: 3 file(s)
+[2026-07-05T10:41:00.000Z] [INFO]: Handoff injected into context
+[2026-07-05T10:50:00.000Z] [INFO]: Handoff written: exit: .handoff/2026-07-05-1050.md
+[2026-07-05T10:50:01.000Z] [INFO]: Disposed
+[2026-07-05T10:55:00.000Z] [ERROR]: write failed: disk full
+[2026-07-05T10:56:00.000Z] [ERROR]: messages.transform: cannot parse
+[2026-07-05T11:00:00.000Z] [DEBUG]: Handoff skipped (no messages): exit
+```
+
 ## 📝 Output format
 
 Each handoff is a `.md` file in `.handoff/<timestamp>.md`:
