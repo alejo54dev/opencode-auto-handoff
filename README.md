@@ -38,7 +38,7 @@ flowchart TD
     C --> D
     B -->|"❌ No"| D{"Plugin loads?"}
     D -->|"✅ Yes"| E["📂 Read .md files"]
-    E --> F["📎 Inject as user message<br/>sentinel: id='handoff-resume'<br/>(once per session)"]
+    E --> F["📎 Inject as user message<br/>between &lt;handoff-resume&gt;<br/>system tags"]
     D -->|"❌ No"| A
 
     style A fill:#1a1a2e,stroke:#e94560,color:#fff
