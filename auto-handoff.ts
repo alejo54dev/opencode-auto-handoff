@@ -79,6 +79,7 @@ const STRIP_PATTERNS =
 	/▣\s*(?:DCP|Compression)[\s\S]*/g,
 	/\[Compressed[\s\S]*/g,
 	/<handoff-resume>[\s\S]*?<\/handoff-resume>/g,
+	/<deep-memory>[\s\S]*?<\/deep-memory>/g,
 ];
 
 // ─── Interfaces ────────────────────────────────────────────────────────────
