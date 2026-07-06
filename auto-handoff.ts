@@ -22,13 +22,13 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.42
+*	@version 1.1.1
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
 */
 
-import type { Plugin, PluginInput, PluginOptions } from "@opencode-ai/plugin" ;
+import type { Plugin, PluginInput } from "@opencode-ai/plugin" ;
 import { mkdirSync, existsSync, appendFileSync, writeFileSync, readFileSync, readdirSync, unlinkSync } from "node:fs" ;
 import { homedir } from "node:os" ;
 import { join } from "node:path" ;
@@ -255,52 +255,64 @@ const buildFileContent = ( ts: string, reason: string, entries: MessageEntry[], 
 	);
 };
 
-// ─── Plugin ────────────────────────────────────────────────────────────────
+// ─── AutoHandoff ───────────────────────────────────────────────────────────
 
-export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
+class AutoHandoff
 {
-	const opts = loadConfig() ;
-	const projectDir = ctx.directory ;
-	const handoffDir = join( projectDir, ".handoff" );
+	private opts       : typeof CONFIG ;
+	private projectDir : string ;
+	private handoffDir : string ;
+	private client     : PluginInput[ "client" ] ;
 
-	const messages: MessageEntry[] = [] ;
+	private messages         : MessageEntry[]  = [] ;
+	private seenMessageIds   : Set<string>     = new Set() ;
+	private currentSessionID : string | null   = null ;
+	private pendingHandoff   : MessageEntry[]  | null ;
 
-	const seenMessageIds = new Set<string>() ;
-	let currentSessionID: string | null = null ;
+	private _boundOnExit : () => void ;
 
-	// Clear the in-memory message buffer
-	const flushMessages = (): void =>
+	constructor( opts: typeof CONFIG, projectDir: string, client: PluginInput[ "client" ] )
 	{
-		messages.length = 0 ;
-	};
+		this.opts       = opts ;
+		this.projectDir = projectDir ;
+		this.handoffDir = join( projectDir, ".handoff" ) ;
+		this.client     = client ;
 
-	// Skip if same role+content as last message (transform re-fires with full output.messages)
-	const isDedup = ( role: string, content: string ): boolean =>
+		this._boundOnExit = () => this.onExit() ;
+		process.once( "exit", this._boundOnExit ) ;
+
+		this.pendingHandoff = this.loadHandoffs() ;
+	}
+
+	// ── Private helpers ───────────────────────────────────────────────────
+
+	private flushMessages(): void
 	{
-		const last = messages[ messages.length - 1 ];
+		this.messages.length = 0 ;
+	}
+
+	private isDedup( role: string, content: string ): boolean
+	{
+		const last = this.messages[ this.messages.length - 1 ];
 		return ( !!last && last.role === role && last.content === content );
-	};
+	}
 
-	// Skip synthetic handoff-resume injected message
-	const isHandoffResume = ( msg: MessageLike ): boolean =>
+	private isHandoffResume( msg: MessageLike ): boolean
 	{
 		return ( msg.info.role === "user" && msg.info.id === "handoff-resume" );
-	};
+	}
 
-	// Skip messages already processed in previous transform calls
-	const isAlreadySeen = ( msg: MessageLike ): boolean =>
+	private isAlreadySeen( msg: MessageLike ): boolean
 	{
-		return ( !!msg.info.id && seenMessageIds.has( msg.info.id ) ) ;
-	};
+		return ( !!msg.info.id && this.seenMessageIds.has( msg.info.id ) ) ;
+	}
 
-	// Check if periodic write should fire
-	const shouldWritePeriodic = (): boolean =>
+	private shouldWritePeriodic(): boolean
 	{
-		return ( opts.every_messages > 0 && messages.length >= opts.every_messages );
-	};
+		return ( this.opts.every_messages > 0 && this.messages.length >= this.opts.every_messages );
+	}
 
-	// Write current messages to .handoff/<ts>.md, skip if buffer empty
-	const writeHandoff = ( reason: string, entries: MessageEntry[] = messages ): void =>
+	private writeHandoff( reason: string, entries: MessageEntry[] = this.messages ): void
 	{
 		if ( entries.length <= 0 )
 		{
@@ -310,13 +322,13 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 		try
 		{
 			const ts = timestamp() ;
-			const path = join( handoffDir, `${ts}.md` );
-			const content = buildFileContent( ts, reason, entries, opts.keep_last );
+			const path = join( this.handoffDir, `${ts}.md` );
+			const content = buildFileContent( ts, reason, entries, this.opts.keep_last );
 
-			mkdirSync( handoffDir, { recursive: true } );
+			mkdirSync( this.handoffDir, { recursive: true } );
 			writeFileSync( path, content );
 
-			rotateHandoffFiles( handoffDir, opts.max_stored_files );
+			rotateHandoffFiles( this.handoffDir, this.opts.max_stored_files );
 
 			log( LOG_LEVEL.INFO, `Handoff written: ${reason}: ${path}` );
 		}
@@ -324,38 +336,34 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 		{
 			log( LOG_LEVEL.ERROR, `write failed: ${( err as Error ).message}` );
 		}
-	};
+	}
 
-	// Handler for process.once("exit"): write handoff if on_exit enabled
-	const onExit = (): void =>
+	private onExit(): void
 	{
-		if ( !opts.on_exit ) return ;
+		if ( !this.opts.on_exit ) return ;
 
 		try
 		{
-			writeHandoff( `exit (${messages.length} messages)` );
-			flushMessages() ;
+			this.writeHandoff( `exit (${this.messages.length} messages)` );
+			this.flushMessages() ;
 		}
 		catch { /* non-fatal */ }
-	};
+	}
 
-	process.once( "exit", onExit );
-
-	// Load recent handoff files into buffer for injection on first turn
-	const loadHandoffs = (): MessageEntry[] | null =>
+	private loadHandoffs(): MessageEntry[] | null
 	{
-		if ( !opts.on_start ) return null ;
+		if ( !this.opts.on_start ) return null ;
 
 		try
 		{
-			const files = listHandoffFiles( handoffDir );
-			const loadCount = Math.min( opts.max_load_files, files.length );
+			const files = listHandoffFiles( this.handoffDir );
+			const loadCount = Math.min( this.opts.max_load_files, files.length );
 
 			if ( loadCount === 0 ) return null ;
 
 			const entries = files.slice( -loadCount )
-				.flatMap( f => parseFeedback( readFileSync( join( handoffDir, f ), "utf8" ) ) )
-				.slice( -opts.keep_last );
+				.flatMap( f => parseFeedback( readFileSync( join( this.handoffDir, f ), "utf8" ) ) )
+				.slice( -this.opts.keep_last );
 
 			log( LOG_LEVEL.INFO, `Handoff loaded: ${loadCount} file(s), ${entries.length} messages` );
 			return entries ;
@@ -365,17 +373,13 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 			log( LOG_LEVEL.ERROR, `on_start load failed: ${( err as Error ).message}` );
 			return null ;
 		}
-	};
+	}
 
-	let pendingHandoff: MessageEntry[] | null = loadHandoffs();
-
-	// Fetch the last message from SDK — always the last assistant message
-	// that the transform buffer may have missed on dispose.
-	const fetchLastMessage = async ( sessionID: string ): Promise<MessageEntry | null> =>
+	private async fetchLastMessage( sessionID: string ): Promise<MessageEntry | null>
 	{
 		try
 		{
-			const result = await ctx.client.session.messages( {
+			const result = await this.client.session.messages( {
 				path  : { id : sessionID } ,
 				query : { limit : 1 } ,
 			} ) ;
@@ -393,97 +397,109 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 			log( LOG_LEVEL.ERROR, `fetchLastMessage failed` ) ;
 			return null ;
 		}
-	} ;
+	}
 
-	// Inject pending handoff into output messages (once on first turn)
-	const injectHandoff = ( output: { messages?: MessageLike[] } ): boolean =>
+	private injectHandoff( output: { messages?: MessageLike[] } ): boolean
 	{
-		if ( pendingHandoff === null || !output.messages?.length ) return true ;
+		if ( this.pendingHandoff === null || !output.messages?.length ) return true ;
 
-		const injection = buildInjection( pendingHandoff );
+		const injection = buildInjection( this.pendingHandoff );
 
 		output.messages.unshift( {
 			info: { role: "user", id: "handoff-resume" },
 			parts: [ { type: "text", text: injection } ],
 		} as MessageLike );
 
-		log( LOG_LEVEL.INFO, `Handoff injected: ${pendingHandoff.length} messages, ${injection.length} bytes` );
+		log( LOG_LEVEL.INFO, `Handoff injected: ${this.pendingHandoff.length} messages, ${injection.length} bytes` );
 
 		if ( CONFIG.log_level === "debug" )
 		{
-			writeFileSync( join( projectDir, "handoff-resume.txt" ), injection );
+			writeFileSync( join( this.projectDir, "handoff-resume.txt" ), injection );
 			log( LOG_LEVEL.DEBUG, `handoff-resume.txt written` );
 		}
 
-		pendingHandoff = null ;
-		flushMessages() ;
+		this.pendingHandoff = null ;
+		this.flushMessages() ;
 
 		return true ;
-	};
+	}
 
-	log( LOG_LEVEL.INFO, `Initialized | project: ${projectDir}` );
+	// ── Public hooks ──────────────────────────────────────────────────────
 
-	return {
-		"experimental.chat.messages.transform": async ( _input, output ) =>
+	public async transform( _input: unknown, output: { messages?: MessageLike[] } ): Promise<void>
+	{
+		try
+		{
+			if ( !this.injectHandoff( output ) ) return ;
+			if ( !output.messages?.length ) return ;
+
+			for ( const msg of output.messages )
+			{
+				if ( this.isHandoffResume( msg ) ) continue ;
+				if ( this.isAlreadySeen( msg ) ) continue ;
+
+				if ( msg.info?.sessionID ) this.currentSessionID = msg.info.sessionID ;
+
+				const text = extractText( msg as MessageLike );
+				if ( !text ) continue ;
+
+				if ( this.isDedup( msg.info.role, text ) ) continue ;
+
+				this.messages.push( { role: msg.info.role, content: text } );
+
+				if ( msg.info.id ) this.seenMessageIds.add( msg.info.id ) ;
+			}
+
+			if ( this.shouldWritePeriodic() )
+			{
+				this.writeHandoff( `periodic (${this.messages.length} messages)` );
+				this.flushMessages() ;
+			}
+		}
+		catch ( err )
+		{
+			log( LOG_LEVEL.ERROR, `messages.transform: ${( err as Error ).message}` );
+		}
+	}
+
+	public async dispose(): Promise<void>
+	{
+		if ( this.opts.on_exit )
 		{
 			try
 			{
-				if ( !injectHandoff( output ) ) return ;
-				if ( !output.messages?.length ) return ;
-
-				for ( const msg of output.messages )
+				if ( this.currentSessionID )
 				{
-					if ( isHandoffResume( msg ) ) continue ;
-					if ( isAlreadySeen( msg ) ) continue ;
-
-					if ( msg.info?.sessionID ) currentSessionID = msg.info.sessionID ;
-
-					const text = extractText( msg as MessageLike );
-					if ( !text ) continue ;
-
-					if ( isDedup( msg.info.role, text ) ) continue ;
-
-					messages.push( { role: msg.info.role, content: text } );
-
-					if ( msg.info.id ) seenMessageIds.add( msg.info.id ) ;
+					const last = await this.fetchLastMessage( this.currentSessionID ) ;
+					if ( last && !this.isDedup( last.role, last.content ) ) this.messages.push( last ) ;
 				}
 
-				if ( shouldWritePeriodic() )
+				if ( this.messages.length > 0 )
 				{
-					writeHandoff( `periodic (${messages.length} messages)` );
-					flushMessages() ;
+					this.writeHandoff( `dispose (${this.messages.length} messages)`, this.messages ) ;
 				}
+
+				this.flushMessages() ;
 			}
-			catch ( err )
-			{
-				log( LOG_LEVEL.ERROR, `messages.transform: ${( err as Error ).message}` );
-			}
-		},
+			catch { /* non-fatal */ }
+		}
 
-		dispose: async () =>
-		{
-			if ( opts.on_exit )
-			{
-				try
-				{
-					if ( currentSessionID )
-					{
-						const last = await fetchLastMessage( currentSessionID ) ;
-						if ( last && !isDedup( last.role, last.content ) ) messages.push( last ) ;
-					}
+		process.removeListener( "exit", this._boundOnExit ) ;
+		log( LOG_LEVEL.INFO, "Disposed" );
+	}
+}
 
-					if ( messages.length > 0 )
-					{
-						writeHandoff( `dispose (${messages.length} messages)`, messages ) ;
-					}
+// ─── Plugin ────────────────────────────────────────────────────────────────
 
-					flushMessages() ;
-				}
-				catch { /* non-fatal */ }
-			}
+export default ( async ( ctx: PluginInput ) =>
+{
+	const opts = loadConfig() ;
+	const ah = new AutoHandoff( opts, ctx.directory, ctx.client ) ;
 
-			process.removeListener( "exit", onExit ) ;
-			log( LOG_LEVEL.INFO, "Disposed" );
-		},
+	log( LOG_LEVEL.INFO, `Initialized | project: ${ctx.directory}` ) ;
+
+	return {
+		"experimental.chat.messages.transform": ( i: unknown, o: { messages?: MessageLike[] } ) => ah.transform( i, o ),
+		dispose: () => ah.dispose(),
 	};
 } ) satisfies Plugin ;

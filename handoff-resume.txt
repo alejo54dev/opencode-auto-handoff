@@ -1,0 +1,69 @@
+<handoff-resume>
+
+# ⚠️ HARD RULE — read this first
+
+The feedback records below are your **only** source of truth for previous session state.
+
+## 🚫 PROHIBITED — doing any of these is a **bug**, not a mistake
+
+- Do NOT run `readdir`, `readFile`, `glob`, or `grep` on `.handoff/`
+- Do NOT run `git log`, `git diff`, `git status`, or any git inspection command
+- Do NOT re-read any project file to "verify" what the handoff already tells you
+
+If you do any of the above, you have **failed this turn** — the handoff is authoritative.
+
+## ✅ What to do instead
+
+Synthesize directly from the feedback records below. Present a clear, structured markdown summary covering:
+- **Where we left off** — last task and current state
+- **Key context** — files touched, decisions made, constraints discovered
+- **Next step** — what was pending or in progress
+- **Load skills** — load the prefixed skills
+
+## Feedback records
+
+- [assistant] Refactor completo. El archivo ahora tiene esta estructura:
+
+```
+Paths → Constants → Interfaces → Config → Logger → Helpers → Parsers → Builders → AutoHandoff (class) → Plugin (wiring)
+```
+
+**`AutoHandoff` class** (línea 260-490): encapsula todo el estado mutable + métodos privados + hooks públicos `transform()` y `dispose()`.
+
+**`export default`** (línea 494-505): solo 5 líneas de glue:
+```ts
+const opts = loadConfig();
+const ah = new AutoHandoff( opts, ctx.directory, ctx.client );
+return {
+    "experimental.chat.messages.transform": (i, o) => ah.transform(i, o),
+    dispose: () => ah.dispose(),
+};
+```
+
+Sin cambios en comportamiento. Las funciones module-level puras (`loadConfig`, `log`, `timestamp`, `extractText`, etc.) quedaron intactas.
+- [user] pero super mejor, ahora si.. ojala funcione! jaja
+- [assistant] Jaja, va a funcionar — es el mismo código, solo mejor organizado. La lógica no cambió ni una línea.
+
+Pero estamos en Plan Mode otra vez. Cuando salgamos, lo probamos con una sesión real y vemos si hay que ajustar algo.
+- [user] bueno a probar.. ya vengo
+- [assistant] OK, te espero. 🤞
+- [user] antes recorda esto que hicismos con este proyecto en tu memoria. porque quizas hagamos lo mismo en otros plugins. y quiero que sigamos el mismo protron de factoria.
+
+- [assistant] Guardado. El patrón queda registrado en memoria para replicar en otros plugins.
+
+- [user] volvi.
+- [assistant] ¡Bienvenido! ¿Cómo fue la prueba? ¿Funcionó el auto-handoff en la sesión real?
+- [user] por ahora si, estamos dentro.
+- [assistant] Perfecto, el handoff funcionó — la sesión retomó desde donde quedó.
+
+¿Qué quieres hacer ahora?
+- [user] tenemos que probar bien todo, repite conmigo:
+
+1
+
+- [assistant] 1
+- [user] 2
+- [assistant] 2
+
+
+</handoff-resume>
