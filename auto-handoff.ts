@@ -6,32 +6,32 @@
 *	Loads handoffs on startup. No keywords, no database.
 *
 *	Install: cp auto-handoff.ts ~/.config/opencode/plugins/auto-handoff.ts
- *	Config:  ~/.config/opencode/auto-handoff.jsonc
- *	Log:     ~/.config/opencode/auto-handoff.log
- *	Output: <project>/.handoff/<timestamp>.md
- *
- *	@example ~/.config/opencode/auto-handoff.jsonc
+*	Config:  ~/.config/opencode/auto-handoff.jsonc
+*	Log:     ~/.config/opencode/auto-handoff.log
+*	Output: <project>/.handoff/<timestamp>.md
+*
+*	@example ~/.config/opencode/auto-handoff.jsonc
 *	{
-*		"every_messages": 20,   // periodic write every N messages (0 = never)
-*		"on_exit": true,        // write on dispose hook + process.once("exit")
-*		"on_start": true,       // load handoffs on startup
-*		"keep_last": 20,        // recent messages per handoff
-*		"max_stored_files": 10, // rotation limit
-*		"max_load_files": 3,    // how many recent handoffs to load
+*		"every_messages": 20,   // trigger periodic write every N messages (0 = never)
+*		"on_exit": true,        // write handoff on dispose/exit
+*		"on_start": true,       // load recent handoffs on startup
+*		"keep_last": 20,        // max messages per handoff (write & load)
+*		"max_stored_files": 10, // max .handoff/*.md files to keep (rotation)
+*		"max_load_files": 5,    // max recent handoff files to load on startup
 *		"log_level": "info",    // silent, error, info, debug
 *	}
 *
 *	@name auto-handoff plugin.
- *	@version 1.0.33
+*	@version 1.0.40
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
 */
 
-import type { Plugin, PluginInput, PluginOptions } from "@opencode-ai/plugin";
-import { mkdirSync, existsSync, appendFileSync, writeFileSync, readFileSync, readdirSync, unlinkSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import type { Plugin, PluginInput, PluginOptions } from "@opencode-ai/plugin" ;
+import { mkdirSync, existsSync, appendFileSync, writeFileSync, readFileSync, readdirSync, unlinkSync } from "node:fs" ;
+import { homedir } from "node:os" ;
+import { join } from "node:path" ;
 
 // ─── Paths ─────────────────────────────────────────────────────────────────
 
@@ -51,43 +51,47 @@ const LOG_LEVEL =
 
 const CONFIG =
 {
-	every_messages: 10,
-	on_exit: true,
-	on_start: true,
-	keep_last: 20,
-	max_stored_files: 10,
-	max_load_files: 3,
+	every_messages: 20,      // trigger periodic write every N messages (0 = never)
+	on_exit: true,           // write handoff on dispose/exit
+	on_start: true,          // load recent handoffs on startup
+	keep_last: 20,           // max messages per handoff (write & load)
+	max_stored_files: 10,    // max .handoff/*.md files to keep (rotation)
+	max_load_files: 5,       // max recent handoff files to load on startup
 	log_level: "info" as "silent" | "error" | "info" | "debug",
 };
 
 const STRIP_PATTERNS =
 [
-	/<env>[\s\S]*?<\/env>/g,
-	/<thinking>[\s\S]*?<\/thinking>/g,
-	/<system>[\s\S]*?<\/system>/g,
-	/<system-reminder>[\s\S]*?<\/system-reminder>/g,
-	/<tool_result>[\s\S]*?<\/tool_result>/g,
-	/<mcp_instructions>[\s\S]*?<\/mcp_instructions>/g,
-	/<conversation-checkpoint>[\s\S]*?<\/conversation-checkpoint>/g,
-	/<template>[\s\S]*?<\/template>/g,
-	/<available_skills>[\s\S]*?<\/available_skills>/g,
-	/<available_references>[\s\S]*?<\/available_references>/g,
-	/<dcp-message-id>[\s\S]*?<\/dcp-message-id>/g,
-	/\[Tool output truncated/g,
-	/\[Old tool result/g,
-	/▣\s*(?:DCP|Compression)[\s\S]*/g,
-	/\[Compressed[\s\S]*/g,
-	/<previous-summary>[\s\S]*?<\/previous-summary>/g,
-	/<handoff-resume>[\s\S]*?<\/handoff-resume>/g,
-	/<deep-memory>[\s\S]*?<\/deep-memory>/g,
+	"<system[^>]*>[\\s\\S]*?</system[^>]*>",
+	"<env[^>]*>[\\s\\S]*?</env[^>]*>",
+	"<think[^>]*>[\\s\\S]*?</think[^>]*>",
+	"<tool_[^>]*>[\\s\\S]*?</tool_[^>]*>",
+	"<mcp_[^>]*>[\\s\\S]*?</mcp_[^>]*>",
+	"<dcp-[^>]*>[\\s\\S]*?</dcp-[^>]*>",
+	"<conver[^>]*>[\\s\\S]*?</conver[^>]*>",
+	"<temp[^>]*>[\\s\\S]*?</temp[^>]*>",
+	"<available_[^>]*>[\\s\\S]*?</available_[^>]*>",
+	"<prev[^>]*>[\\s\\S]*?</prev[^>]*>",
+	"<handoff[^>]*>[\\s\\S]*?</handoff[^>]*>",
+	"<deep-[^>]*>[\\s\\S]*?</deep-[^>]*>",
+	"\\[Tool output truncated[\\s\\S]*",
+	"\\[Old tool result[\\s\\S]*",
+	"▣\\s*(?:DCP|Compression)[\\s\\S]*",
+	"\\[Compressed[\\s\\S]*",
 ];
 
 // ─── Interfaces ────────────────────────────────────────────────────────────
 
 interface MessageLike
 {
-	info: { role: "user" | "assistant"; id?: string };
-	parts: Array<{ type: string; text?: string }>;
+	info: { role: "user" | "assistant"; id?: string; sessionID?: string } ;
+	parts: Array<{ type: string; text?: string }> ;
+}
+
+interface MessageEntry
+{
+	role: "user" | "assistant" ;
+	content: string ;
 }
 
 // ─── Config ────────────────────────────────────────────────────────────────
@@ -117,9 +121,9 @@ function loadConfig(): typeof CONFIG
 		log_level:         file.log_level                     ?? CONFIG.log_level         ,
 	} as typeof CONFIG;
 
-	CONFIG.log_level = opts.log_level;
+	CONFIG.log_level = opts.log_level ;
 
-	return opts;
+	return opts ;
 }
 
 // ─── Logger ────────────────────────────────────────────────────────────────
@@ -142,10 +146,10 @@ function log( level : number, message : string ) : void
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-// Generate timestamp for handoff filenames: "2026-07-03-1430"
+// Generate timestamp for handoff filenames: "2026-07-03-143022"
 function timestamp(): string
 {
-	return new Date().toISOString().slice( 0, 16 ).replace( 'T', '-' ).replace( ':', '' ) ;
+	return new Date().toISOString().slice( 0, 19 ).replace( 'T', '-' ).replace( /:/g, '' ) ;
 }
 
 // Extract plain text from a MessageLike, stripping system tags and compress artifacts
@@ -156,49 +160,49 @@ const extractText = ( msg: MessageLike ): string =>
 		.map( p => p.text! )
 		.join( "\n" );
 
-	let t = text;
-	for ( const p of STRIP_PATTERNS )
-		t = t.replace( p, "" );
-
-	return t.trim();
+	return text.replace( new RegExp( STRIP_PATTERNS.join( "|" ), "gi" ), "" ).trim() ;
 };
 
-// Parse handoff content returning only message blocks (- [user]/[assistant])
-// with full multi-line body preservation (continuation lines kept)
-const parseFeedback = ( content: string ): string =>
+// ─── Parsers ───────────────────────────────────────────────────────────────
+
+// Parse .md handoff content into structured message entries
+const parseFeedback = ( content: string ): MessageEntry[] =>
 {
 	const lines = content.split( "\n" );
-	const result: string[] = [];
-	let inBlock = false;
+	const entries: MessageEntry[] = [] ;
+	let current: MessageEntry | null = null ;
 
 	for ( const line of lines )
 	{
-		if ( /^\s*-\s*\[(user|assistant)\]/.test( line ) )
+		const match = line.match( /^\s*-\s*\[(user|assistant)\]\s*(.*)/ );
+
+		if ( match )
 		{
-			result.push( line );
-			inBlock = true;
+			current = { role: match[ 1 ], content: match[ 2 ] };
+			entries.push( current );
 		}
-		else if ( inBlock )
+		else if ( current )
 		{
-			result.push( line );
+			current.content += "\n" + line ;
 		}
 	}
 
-	return result.join( "\n" );
+	return entries ;
 };
 
 // List .md files in directory, sorted by filename (oldest first)
 const listHandoffFiles = ( dir: string ): string[] =>
 	existsSync( dir )
 		? readdirSync( dir ).filter( f => f.endsWith( ".md" ) ).sort()
-		: [];
+		: [] ;
 
 // Remove oldest .md files when count exceeds maxStored (FIFO rotation)
 const rotateHandoffFiles = ( dir: string, maxStored: number ): void =>
 {
 	const files = listHandoffFiles( dir );
-	const excess = files.length - maxStored;
-	if ( excess <= 0 ) return;
+	const excess = files.length - maxStored ;
+
+	if ( excess <= 0 ) return ;
 
 	files.slice( 0, excess ).forEach( f =>
 	{
@@ -206,73 +210,113 @@ const rotateHandoffFiles = ( dir: string, maxStored: number ): void =>
 	} );
 };
 
-// ─── Templates ─────────────────────────────────────────────────────────────
+// ─── Builders ──────────────────────────────────────────────────────────────
 
-// Wrap parsed handoff with session-resume instructions for the model
-const readTemplate = ( handoff: string ): string =>
-	`<handoff-resume>\n\n` +
-	`## Resume previous session — handoff loaded\n\n` +
-	`Read it and present a clear, structured markdown summary that covers:\n\n` +
-	`- **Where we left off** — last task and current state\n` +
-	`- **Key context** — files touched, decisions made, constraints discovered\n` +
-	`- **Next step** — what was pending or in progress\n` +
-	`- **Load skills** — load the prefixed skills\n\n` +
-	`The handoff above is the complete record. Do NOT read .handoff/ files or run git/project inspection commands — everything you need is already in context.\n\n` +
-	`---\n\n` +
-	`${handoff}` +
-	`\n\n</handoff-resume>`;
+// Build <handoff-resume> injection from message entries
+const buildInjection = ( entries: MessageEntry[] ): string =>
+{
+	const block = entries
+		.map( e => `- [${e.role}] ${e.content}` )
+		.join( "\n" );
 
-// Format handoff output as .md file: header, reason, messages block
-const writeTemplate = ( ts: string, reason: string, messagesBlock: string ): string =>
-	`# Handoff — ${ts}\n\n` +
-	`## Reason\n${reason}\n\n` +
-	`${messagesBlock}\n`;
+	return (
+		`<handoff-resume>\n\n` +
+		`# ⚠️ HARD RULE — read this first\n\n` +
+		`The feedback records below are your **only** source of truth for previous session state.\n\n` +
+		`## 🚫 PROHIBITED — doing any of these is a **bug**, not a mistake\n\n` +
+		`- Do NOT run \`readdir\`, \`readFile\`, \`glob\`, or \`grep\` on \`.handoff/\`\n` +
+		`- Do NOT run \`git log\`, \`git diff\`, \`git status\`, or any git inspection command\n` +
+		`- Do NOT re-read any project file to "verify" what the handoff already tells you\n\n` +
+		`If you do any of the above, you have **failed this turn** — the handoff is authoritative.\n\n` +
+		`## ✅ What to do instead\n\n` +
+		`Synthesize directly from the feedback records below. Present a clear, structured markdown summary covering:\n` +
+		`- **Where we left off** — last task and current state\n` +
+		`- **Key context** — files touched, decisions made, constraints discovered\n` +
+		`- **Next step** — what was pending or in progress\n` +
+		`- **Load skills** — load the prefixed skills\n\n` +
+		`## Feedback records\n\n` +
+		`${block}` +
+		`\n\n</handoff-resume>`
+	);
+};
+
+// Build .md file content from message entries
+const buildFileContent = ( ts: string, reason: string, entries: MessageEntry[], keepLast: number ): string =>
+{
+	const recent = entries.slice( -keepLast );
+	const block = recent.length > 0
+		? recent.map( e => `- [${e.role}] ${e.content}` ).join( "\n" )
+		: "(no messages captured)" ;
+
+	return (
+		`# Handoff — ${ts}\n\n` +
+		`## Reason\n${reason}\n\n` +
+		`${block}\n`
+	);
+};
 
 // ─── Plugin ────────────────────────────────────────────────────────────────
 
 export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 {
-	const opts = loadConfig();
-	const projectDir = ctx.directory;
+	const opts = loadConfig() ;
+	const projectDir = ctx.directory ;
+	const handoffDir = join( projectDir, ".handoff" );
 
-	const messages: Array<{ role: string; content: string }> = [];
-	let lastSeenMessageId: string | null = null;
+	const messages: MessageEntry[] = [] ;
 
-	let pendingHandoff: string | null = null;
+	const seenMessageIds = new Set<string>() ;
+	let currentSessionID: string | null = null ;
 
 	// Clear the in-memory message buffer
 	const flushMessages = (): void =>
 	{
-		messages.length = 0;
+		messages.length = 0 ;
 	};
 
-	// Write current messages[] to .handoff/<ts>.md, skip if buffer empty
-	const writeHandoff = ( reason: string ): void =>
+	// Skip if same role+content as last message (transform re-fires with full output.messages)
+	const isDedup = ( role: string, content: string ): boolean =>
 	{
-		if ( messages.length === 0 )
+		const last = messages[ messages.length - 1 ];
+		return ( !!last && last.role === role && last.content === content );
+	};
+
+	// Skip synthetic handoff-resume injected message
+	const isHandoffResume = ( msg: MessageLike ): boolean =>
+	{
+		return ( msg.info.role === "user" && msg.info.id === "handoff-resume" );
+	};
+
+	// Skip messages already processed in previous transform calls
+	const isAlreadySeen = ( msg: MessageLike ): boolean =>
+	{
+		return ( !!msg.info.id && seenMessageIds.has( msg.info.id ) ) ;
+	};
+
+	// Check if periodic write should fire
+	const shouldWritePeriodic = (): boolean =>
+	{
+		return ( opts.every_messages > 0 && messages.length >= opts.every_messages );
+	};
+
+	// Write current messages to .handoff/<ts>.md, skip if buffer empty
+	const writeHandoff = ( reason: string, entries: MessageEntry[] = messages ): void =>
+	{
+		if ( entries.length <= 0 )
 		{
 			log( LOG_LEVEL.DEBUG, `Handoff skipped (no messages): ${reason}` );
-			return;
+			return ;
 		}
-
 		try
 		{
-			const ts = timestamp();
-			const dir = join( projectDir, ".handoff" );
-			const path = join( dir, `${ts}.md` );
+			const ts = timestamp() ;
+			const path = join( handoffDir, `${ts}.md` );
+			const content = buildFileContent( ts, reason, entries, opts.keep_last );
 
-			const recent = messages.slice( -opts.keep_last );
-
-			const messagesBlock = recent.length > 0
-				? recent.map( m => `- [${m.role}] ${m.content}` ).join( "\n" )
-				: "(no messages captured)";
-
-			const content = writeTemplate( ts, reason, messagesBlock );
-
-			mkdirSync( dir, { recursive: true } );
+			mkdirSync( handoffDir, { recursive: true } );
 			writeFileSync( path, content );
 
-			rotateHandoffFiles( dir, opts.max_stored_files );
+			rotateHandoffFiles( handoffDir, opts.max_stored_files );
 
 			log( LOG_LEVEL.INFO, `Handoff written: ${reason}: ${path}` );
 		}
@@ -285,93 +329,144 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 	// Handler for process.once("exit"): write handoff if on_exit enabled
 	const onExit = (): void =>
 	{
-		if ( !opts.on_exit ) return;
+		if ( !opts.on_exit ) return ;
 
 		try
 		{
 			writeHandoff( `exit (${messages.length} messages)` );
-			flushMessages();
+			flushMessages() ;
 		}
 		catch { /* non-fatal */ }
 	};
 
 	process.once( "exit", onExit );
 
-	if ( opts.on_start )
+	// Load recent handoff files into buffer for injection on first turn
+	const loadHandoffs = (): MessageEntry[] | null =>
 	{
+		if ( !opts.on_start ) return null ;
+
 		try
 		{
-			const dir = join( projectDir, ".handoff" );
-
-			const files = listHandoffFiles( dir );
+			const files = listHandoffFiles( handoffDir );
 			const loadCount = Math.min( opts.max_load_files, files.length );
 
-			if ( loadCount > 0 )
-			{
-				const selected = files.slice( -loadCount );
-				const stack = selected
-					.map( f => parseFeedback( readFileSync( join( dir, f ), "utf8" ) ) )
-					.filter( block => block.length > 0 )
-					.join( "\n\n---\n\n" );
+			if ( loadCount === 0 ) return null ;
 
-				pendingHandoff = stack;
-				log( LOG_LEVEL.INFO, `Handoff loaded: ${loadCount} file(s)` );
-			}
+			const entries = files.slice( -loadCount )
+				.flatMap( f => parseFeedback( readFileSync( join( handoffDir, f ), "utf8" ) ) )
+				.slice( -opts.keep_last );
+
+			log( LOG_LEVEL.INFO, `Handoff loaded: ${loadCount} file(s), ${entries.length} messages` );
+			return entries ;
 		}
 		catch ( err )
 		{
 			log( LOG_LEVEL.ERROR, `on_start load failed: ${( err as Error ).message}` );
+			return null ;
 		}
-	}
+	};
 
-	log( LOG_LEVEL.INFO, `Initialized | project: ${projectDir} | cfg: ${JSON.stringify( opts )}` );
+	let pendingHandoff: MessageEntry[] | null = loadHandoffs();
+
+	// Fetch messages from session via SDK — safety net for dispose only.
+	// Brings the full window (keep_last) including the last assistant message
+	// that the buffer may not have captured yet.
+	const fetchMessages = async ( sessionID: string, limit: number ): Promise<MessageEntry[]> =>
+	{
+		try
+		{
+			const result = await ctx.client.session.messages( {
+				path  : { id : sessionID } ,
+				query : limit > 0 ? { limit } : undefined ,
+			} ) ;
+
+			const all = result?.data ;
+			if ( !Array.isArray( all ) ) return [] ;
+
+			const entries: MessageEntry[] = [] ;
+
+			for ( const msg of all )
+			{
+				const info = msg.info ;
+				if ( !info || !info.role ) continue ;
+				if ( info.role !== "user" && info.role !== "assistant" ) continue ;
+				if ( info.id === "handoff-resume" ) continue ;
+
+				const text = extractText( msg as MessageLike ) ;
+				if ( !text ) continue ;
+
+				entries.push( { role : info.role, content : text } ) ;
+			}
+
+			log( LOG_LEVEL.DEBUG, `fetchMessages: ${entries.length} entries from ${all.length} messages` ) ;
+			return entries ;
+		}
+		catch
+		{
+			log( LOG_LEVEL.ERROR, `fetchMessages failed` ) ;
+			return [] ;
+		}
+	} ;
+
+	// Inject pending handoff into output messages (once on first turn)
+	const injectHandoff = ( output: { messages?: MessageLike[] } ): boolean =>
+	{
+		if ( pendingHandoff === null || !output.messages?.length ) return true ;
+		if ( !output.messages.some( m => m.info?.role === "user" || m.info?.role === "assistant" ) ) return false ;
+
+		const injection = buildInjection( pendingHandoff );
+
+		output.messages.unshift( {
+			info: { role: "user", id: "handoff-resume" },
+			parts: [ { type: "text", text: injection } ],
+		} as MessageLike );
+
+		log( LOG_LEVEL.INFO, `Handoff injected: ${pendingHandoff.length} messages, ${injection.length} bytes` );
+
+		if ( CONFIG.log_level === "debug" )
+		{
+			writeFileSync( join( projectDir, "handoff-resume.txt" ), injection );
+			log( LOG_LEVEL.DEBUG, `handoff-resume.txt written` );
+		}
+
+		pendingHandoff = null ;
+		flushMessages() ;
+
+		return true ;
+	};
+
+	log( LOG_LEVEL.INFO, `Initialized | project: ${projectDir}` );
 
 	return {
 		"experimental.chat.messages.transform": async ( _input, output ) =>
 		{
 			try
 			{
-				if ( pendingHandoff !== null && output.messages?.length )
-				{
-					const hasRealMessage = output.messages.some(
-						m => m.info?.role === "user" || m.info?.role === "assistant"
-					);
-					if ( !hasRealMessage ) return;
-
-					output.messages.unshift( {
-						info: { role: "user", id: "handoff-resume" },
-						parts: [ { type: "text", text: readTemplate( pendingHandoff ) } ],
-					} as MessageLike );
-
-					pendingHandoff = null;
-					flushMessages();
-
-					log( LOG_LEVEL.INFO, "Handoff injected into context" );
-				}
-
-				if ( !output.messages?.length ) return;
+				if ( !injectHandoff( output ) ) return ;
+				if ( !output.messages?.length ) return ;
 
 				for ( const msg of output.messages )
 				{
-					if ( msg.info.role === "user" && msg.info.id === "handoff-resume" ) continue;
+					if ( isHandoffResume( msg ) ) continue ;
+					if ( isAlreadySeen( msg ) ) continue ;
 
-					if ( msg.info.id && msg.info.id <= ( lastSeenMessageId ?? "" ) ) continue;
+					if ( msg.info?.sessionID ) currentSessionID = msg.info.sessionID ;
 
 					const text = extractText( msg as MessageLike );
-					if ( !text ) continue;
+					if ( !text ) continue ;
 
-					const last = messages[ messages.length - 1 ];
-					if ( last && last.content === text ) continue;
+					if ( isDedup( msg.info.role, text ) ) continue ;
 
 					messages.push( { role: msg.info.role, content: text } );
 
-					if ( msg.info.id ) lastSeenMessageId = msg.info.id;
+					if ( msg.info.id ) seenMessageIds.add( msg.info.id ) ;
 				}
 
-				if ( opts.every_messages > 0 && messages.length >= opts.every_messages )
+				if ( shouldWritePeriodic() )
 				{
 					writeHandoff( `periodic (${messages.length} messages)` );
-					flushMessages();
+					flushMessages() ;
 				}
 			}
 			catch ( err )
@@ -382,18 +477,34 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 		dispose: async () =>
 		{
-			process.removeListener( "exit", onExit );
-
 			if ( opts.on_exit )
 			{
 				try
 				{
-					writeHandoff( `dispose (${messages.length} messages)` );
-					flushMessages();
+					let entries: MessageEntry[] = [] ;
+
+					if ( currentSessionID )
+					{
+						entries = await fetchMessages( currentSessionID, opts.keep_last ) ;
+						if ( entries.length === 0 && messages.length > 0 ) entries = messages ;
+					}
+					else if ( messages.length > 0 )
+					{
+						entries = messages ;
+					}
+
+					if ( entries.length > 0 )
+					{
+						writeHandoff( `dispose (${entries.length} messages)`, entries ) ;
+					}
+
+					flushMessages() ;
 				}
 				catch { /* non-fatal */ }
 			}
+
+			process.removeListener( "exit", onExit ) ;
 			log( LOG_LEVEL.INFO, "Disposed" );
 		},
 	};
-} ) satisfies Plugin;
+} ) satisfies Plugin ;

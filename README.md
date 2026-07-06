@@ -1,6 +1,6 @@
 # Auto Handoff — (your session is safe)
 
-![Version](https://img.shields.io/badge/version-1.0.33-blue)
+![Version](https://img.shields.io/badge/version-1.0.40-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![OpenCode](https://img.shields.io/badge/OpenCode-plugin-purple)
 
@@ -20,7 +20,7 @@
 
 The handoff speaks the same language as the model. What the model writes, another model reads. No translation, no loss.
 
-On load, `parseFeedback` extracts only the messages — no headers, no metadata, no junk. Just pure conversation back into context.
+On load, it recovers only the conversation — no headers, no metadata, no junk. Just pure chat back into context.
 
 ## 🔄 How it works
 
@@ -66,8 +66,8 @@ flowchart TD
 | Trigger | When | Action |
 |---|---|---|
 | `every_messages` | message counter (user + assistant) reaches N | writes `.handoff/<ts>.md` |
-| `dispose` hook | clean shutdown | writes handoff (if `on_exit: true`) |
-| `process.once("exit")` | session ends | writes handoff (structural dedup via `flushMessages()`) |
+| `dispose` hook | clean shutdown | reads latest messages via API and saves (if `on_exit: true`) |
+| `process.once("exit")` | session ends | saves whatever was captured so far |
 | `on_start` | plugin load | reads latest `.handoff/<ts>.md` files, extracts full messages via `parseFeedback()`, stores as `pendingHandoff` |
 
 ## 🚀 Installation
@@ -84,24 +84,24 @@ Copy `auto-handoff.jsonc` (included in this repo) to `~/.config/opencode/` and e
 
 ```jsonc
 {
-	"every_messages": 20,   // periodic write every N messages (0 = never)
-	"on_exit": true,        // write on dispose hook + process.once("exit")
-	"on_start": true,       // load handoffs on startup
-	"keep_last": 20,        // recent messages per handoff
-	"max_stored_files": 10, // rotation limit
-	"max_load_files": 3,    // how many recent handoffs to load
+	"every_messages": 20,   // trigger periodic write every N messages (0 = never)
+	"on_exit": true,        // write handoff on dispose/exit
+	"on_start": true,       // load recent handoffs on startup
+	"keep_last": 20,        // max messages per handoff (write & load)
+	"max_stored_files": 10, // max .handoff/*.md files to keep (rotation)
+	"max_load_files": 5,    // max recent handoff files to load on startup
 	"log_level": "info"     // silent, error, info, debug
 }
 ```
 
 | Field | Default | Description |
 |---|---|---|
-| `every_messages` | `20` | writes a handoff every N messages (user + assistant). `0` = never periodic, only dispose/exit |
-| `on_exit` | `true` | writes on session close |
-| `on_start` | `true` | reads latest handoffs on start |
-| `keep_last` | `20` | how many recent messages each handoff includes (minimum 1) |
-| `max_stored_files` | `10` | max `.md` files kept in `.handoff/` (auto-rotation, minimum 1) |
-| `max_load_files` | `3` | how many recent handoffs are loaded on start (minimum 1) |
+| `every_messages` | `20` | trigger periodic write every N messages (user + assistant). `0` = never periodic, only dispose/exit |
+| `on_exit` | `true` | write handoff on dispose/exit |
+| `on_start` | `true` | load recent handoffs on startup |
+| `keep_last` | `20` | max messages per handoff (write & load, minimum 1) |
+| `max_stored_files` | `10` | max `.handoff/*.md` files to keep (rotation, minimum 1) |
+| `max_load_files` | `5` | max recent handoff files to load on startup (minimum 1) |
 | `log_level` | `"info"` | log level (`silent`, `error`, `info`, `debug`) |
 
 If the file doesn't exist, defaults are used.
@@ -116,11 +116,11 @@ tail -f ~/.config/opencode/auto-handoff.log
 
 ```log
 [2026-07-05T10:30:00.000Z] [INFO]: Config loaded
-[2026-07-05T10:30:01.000Z] [INFO]: Initialized | project: /home/user/myapp | cfg: {"every_messages":20,...}
+[2026-07-05T10:30:01.000Z] [INFO]: Initialized | project: /home/user/myapp
 [2026-07-05T10:35:12.000Z] [INFO]: Handoff written: periodic (21 messages): .handoff/2026-07-05-1035.md
-[2026-07-05T10:40:23.000Z] [INFO]: Handoff loaded: 3 file(s)
-[2026-07-05T10:41:00.000Z] [INFO]: Handoff injected into context
-[2026-07-05T10:50:00.000Z] [INFO]: Handoff written: exit: .handoff/2026-07-05-1050.md
+[2026-07-05T10:40:23.000Z] [INFO]: Handoff loaded: 3 file(s), 15 messages
+[2026-07-05T10:41:00.000Z] [INFO]: Handoff injected: 15 messages, 2875 bytes
+[2026-07-05T10:50:00.000Z] [INFO]: Handoff written: exit (10 messages): .handoff/2026-07-05-1050.md
 [2026-07-05T10:50:01.000Z] [INFO]: Disposed
 [2026-07-05T10:55:00.000Z] [ERROR]: write failed: disk full
 [2026-07-05T10:56:00.000Z] [ERROR]: messages.transform: cannot parse
@@ -151,8 +151,8 @@ Messages are dumped in chronological order with a `[user]` or `[assistant]` pref
 | Hook | Purpose |
 |---|---|
 | `experimental.chat.messages.transform` | injects pending handoff (once), captures user + assistant messages, writes handoff every N |
-| `process.once("exit")` | auto-write on session close |
-| `dispose` | cleanup (removes listener, auto-writes) |
+| `process.once("exit")` | saves on session close |
+| `dispose` | reads latest via API and saves when closing |
 
 ## 💬 Notes
 
@@ -165,4 +165,4 @@ Less is more. :)
 
 ## 📄 License
 
-MIT — version 1.0.33
+MIT — version 1.0.40

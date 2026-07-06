@@ -1,9 +1,9 @@
 {
-	"every_messages": 20,   // periodic write every N messages (0 = never)
-	"on_exit": true,        // write on dispose hook + process.once("exit")
-	"on_start": true,       // load handoffs on startup
-	"keep_last": 20,        // recent messages per handoff
-	"max_stored_files": 10, // rotation limit
-	"max_load_files": 3,    // how many recent handoffs to load
+	"every_messages": 10,   // write handoff every N messages (0 = never, only on_exit)
+	"on_exit": true,        // write handoff on dispose/exit
+	"on_start": true,       // load recent handoffs on startup
+	"keep_last": 20,        // max messages per handoff (write & load)
+	"max_stored_files": 50, // max .handoff/*.md files to keep (rotation)
+	"max_load_files": 5,    // max recent handoff files to load on startup
 	"log_level": "info",    // silent, error, info, debug
 }
