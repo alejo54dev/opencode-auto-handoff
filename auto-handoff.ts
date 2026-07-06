@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.0.40
+*	@version 1.0.42
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -369,43 +369,29 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 
 	let pendingHandoff: MessageEntry[] | null = loadHandoffs();
 
-	// Fetch messages from session via SDK — safety net for dispose only.
-	// Brings the full window (keep_last) including the last assistant message
-	// that the buffer may not have captured yet.
-	const fetchMessages = async ( sessionID: string, limit: number ): Promise<MessageEntry[]> =>
+	// Fetch the last message from SDK — always the last assistant message
+	// that the transform buffer may have missed on dispose.
+	const fetchLastMessage = async ( sessionID: string ): Promise<MessageEntry | null> =>
 	{
 		try
 		{
 			const result = await ctx.client.session.messages( {
 				path  : { id : sessionID } ,
-				query : limit > 0 ? { limit } : undefined ,
+				query : { limit : 1 } ,
 			} ) ;
 
-			const all = result?.data ;
-			if ( !Array.isArray( all ) ) return [] ;
+			const msg = result?.data?.[ 0 ] ;
+			if ( !msg ) return null ;
 
-			const entries: MessageEntry[] = [] ;
+			const text = extractText( msg as MessageLike ) ;
+			if ( !text ) return null ;
 
-			for ( const msg of all )
-			{
-				const info = msg.info ;
-				if ( !info || !info.role ) continue ;
-				if ( info.role !== "user" && info.role !== "assistant" ) continue ;
-				if ( info.id === "handoff-resume" ) continue ;
-
-				const text = extractText( msg as MessageLike ) ;
-				if ( !text ) continue ;
-
-				entries.push( { role : info.role, content : text } ) ;
-			}
-
-			log( LOG_LEVEL.DEBUG, `fetchMessages: ${entries.length} entries from ${all.length} messages` ) ;
-			return entries ;
+			return { role : msg.info.role, content : text } ;
 		}
 		catch
 		{
-			log( LOG_LEVEL.ERROR, `fetchMessages failed` ) ;
-			return [] ;
+			log( LOG_LEVEL.ERROR, `fetchLastMessage failed` ) ;
+			return null ;
 		}
 	} ;
 
@@ -413,7 +399,6 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 	const injectHandoff = ( output: { messages?: MessageLike[] } ): boolean =>
 	{
 		if ( pendingHandoff === null || !output.messages?.length ) return true ;
-		if ( !output.messages.some( m => m.info?.role === "user" || m.info?.role === "assistant" ) ) return false ;
 
 		const injection = buildInjection( pendingHandoff );
 
@@ -481,21 +466,15 @@ export default ( async ( ctx: PluginInput, rawOptions?: PluginOptions ) =>
 			{
 				try
 				{
-					let entries: MessageEntry[] = [] ;
-
 					if ( currentSessionID )
 					{
-						entries = await fetchMessages( currentSessionID, opts.keep_last ) ;
-						if ( entries.length === 0 && messages.length > 0 ) entries = messages ;
-					}
-					else if ( messages.length > 0 )
-					{
-						entries = messages ;
+						const last = await fetchLastMessage( currentSessionID ) ;
+						if ( last && !isDedup( last.role, last.content ) ) messages.push( last ) ;
 					}
 
-					if ( entries.length > 0 )
+					if ( messages.length > 0 )
 					{
-						writeHandoff( `dispose (${entries.length} messages)`, entries ) ;
+						writeHandoff( `dispose (${messages.length} messages)`, messages ) ;
 					}
 
 					flushMessages() ;
