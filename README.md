@@ -4,7 +4,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![OpenCode](https://img.shields.io/badge/OpenCode-plugin-purple)
 
-> You close OpenCode, come back the next day, and all context is gone. You have to re-explain everything from scratch.
+> You close OpenCode, come back the next day and all context is gone? You have to re-explain everything from scratch? Not anymore!
 
 ## 💡 What it does
 
