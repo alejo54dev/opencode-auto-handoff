@@ -22,33 +22,6 @@ Synthesize directly from the feedback records below. Present a clear, structured
 
 ## Feedback records
 
-- [assistant] Refactor completo. El archivo ahora tiene esta estructura:
-
-```
-Paths → Constants → Interfaces → Config → Logger → Helpers → Parsers → Builders → AutoHandoff (class) → Plugin (wiring)
-```
-
-**`AutoHandoff` class** (línea 260-490): encapsula todo el estado mutable + métodos privados + hooks públicos `transform()` y `dispose()`.
-
-**`export default`** (línea 494-505): solo 5 líneas de glue:
-```ts
-const opts = loadConfig();
-const ah = new AutoHandoff( opts, ctx.directory, ctx.client );
-return {
-    "experimental.chat.messages.transform": (i, o) => ah.transform(i, o),
-    dispose: () => ah.dispose(),
-};
-```
-
-Sin cambios en comportamiento. Las funciones module-level puras (`loadConfig`, `log`, `timestamp`, `extractText`, etc.) quedaron intactas.
-- [user] pero super mejor, ahora si.. ojala funcione! jaja
-- [assistant] Jaja, va a funcionar — es el mismo código, solo mejor organizado. La lógica no cambió ni una línea.
-
-Pero estamos en Plan Mode otra vez. Cuando salgamos, lo probamos con una sesión real y vemos si hay que ajustar algo.
-- [user] bueno a probar.. ya vengo
-- [assistant] OK, te espero. 🤞
-- [user] antes recorda esto que hicismos con este proyecto en tu memoria. porque quizas hagamos lo mismo en otros plugins. y quiero que sigamos el mismo protron de factoria.
-
 - [assistant] Guardado. El patrón queda registrado en memoria para replicar en otros plugins.
 
 - [user] volvi.
@@ -64,6 +37,30 @@ Pero estamos en Plan Mode otra vez. Cuando salgamos, lo probamos con una sesión
 - [assistant] 1
 - [user] 2
 - [assistant] 2
+
+- [user] ok, volvi 2.0
+- [assistant] ...
+
+Bien, el handoff funciona. ¿Qué querés probar específicamente?
+
+Sugerencias de pruebas:
+
+1. **Ciclo completo** — iniciar sesión, chatear, salir, volver a entrar → verificar que el `.md` se escribe y se reinyecta
+2. **Múltiples mensajes** — pasar el threshold de `every_messages` y verificar escritura periódica
+3. **Debug mode** — activar `log_level: "debug"` y verificar `handoff-resume.txt`
+4. **Borde: sesión sin mensajes** — iniciar y salir sin escribir nada
+5. **Borde: mensaje único** — escribir 1 mensaje y salir
+
+¿Por cuál empezamos? ¿O los corremos todos de una?
+- [user] se ve todo bien, actualiza versiones de readme y agents con la del script. haz un git-sync
+- [assistant] Hecho:
+
+- `README.md` — badge + license line `1.0.40` → `1.1.1`
+- `AGENTS.md` — añadido `**Version:** 1.1.1` en sección Source of truth
+- commit + push a `main` OK
+- [user] ok, bueno gracias
+
+- [assistant] De nada, cuando vuelvas estará todo listo.
 
 
 </handoff-resume>

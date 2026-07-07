@@ -99,10 +99,10 @@ interface MessageEntry
 // Load config from ~/.config/opencode/auto-handoff.jsonc, fall back to defaults
 function loadConfig(): typeof CONFIG
 {
-	let file : Record<string, unknown> = {};
+	let file : Record<string, unknown> = {} ;
 	try
 	{
-		file = Bun.JSONC.parse( readFileSync( CONFIG_FILE, "utf8" ) );
+		file = Bun.JSONC.parse( readFileSync( CONFIG_FILE, "utf8" ) ) ;
 		log( LOG_LEVEL.INFO, "Config loaded" ) ;
 	}
 	catch
@@ -146,10 +146,14 @@ function log( level : number, message : string ) : void
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-// Generate timestamp for handoff filenames: "2026-07-03-143022"
+// Generate timestamp for handoff filenames: "2026-07-06-203026" (system local time)
 function timestamp(): string
 {
-	return new Date().toISOString().slice( 0, 19 ).replace( 'T', '-' ).replace( /:/g, '' ) ;
+	const d      = new Date() ;
+	const offset = d.getTimezoneOffset() ;
+	const local  = new Date( d.getTime() - offset * 60 * 1000 ) ;
+
+	return local.toISOString().slice( 0, 19 ).replace( 'T', '-' ).replace( /:/g, '' ) ;
 }
 
 // Extract plain text from a MessageLike, stripping system tags and compress artifacts
@@ -158,7 +162,7 @@ const extractText = ( msg: MessageLike ): string =>
 	const text = ( msg.parts ?? [] )
 		.filter( p => p.type === "text" && typeof p.text === "string" )
 		.map( p => p.text! )
-		.join( "\n" );
+		.join( "\n" ) ;
 
 	return text.replace( new RegExp( STRIP_PATTERNS.join( "|" ), "gi" ), "" ).trim() ;
 };
@@ -168,18 +172,18 @@ const extractText = ( msg: MessageLike ): string =>
 // Parse .md handoff content into structured message entries
 const parseFeedback = ( content: string ): MessageEntry[] =>
 {
-	const lines = content.split( "\n" );
+	const lines = content.split( "\n" ) ;
 	const entries: MessageEntry[] = [] ;
 	let current: MessageEntry | null = null ;
 
 	for ( const line of lines )
 	{
-		const match = line.match( /^\s*-\s*\[(user|assistant)\]\s*(.*)/ );
+		const match = line.match( /^\s*-\s*\[(user|assistant)\]\s*(.*)/ ) ;
 
 		if ( match )
 		{
-			current = { role: match[ 1 ], content: match[ 2 ] };
-			entries.push( current );
+			current = { role: match[ 1 ], content: match[ 2 ] } ;
+			entries.push( current ) ;
 		}
 		else if ( current )
 		{
@@ -293,13 +297,13 @@ class AutoHandoff
 
 	private isDedup( role: string, content: string ): boolean
 	{
-		const last = this.messages[ this.messages.length - 1 ];
-		return ( !!last && last.role === role && last.content === content );
+		const last = this.messages[ this.messages.length - 1 ] ;
+		return ( !!last && last.role === role && last.content === content ) ;
 	}
 
 	private isHandoffResume( msg: MessageLike ): boolean
 	{
-		return ( msg.info.role === "user" && msg.info.id === "handoff-resume" );
+		return ( msg.info.role === "user" && msg.info.id === "handoff-resume" ) ;
 	}
 
 	private isAlreadySeen( msg: MessageLike ): boolean
@@ -309,32 +313,32 @@ class AutoHandoff
 
 	private shouldWritePeriodic(): boolean
 	{
-		return ( this.opts.every_messages > 0 && this.messages.length >= this.opts.every_messages );
+		return ( this.opts.every_messages > 0 && this.messages.length >= this.opts.every_messages ) ;
 	}
 
 	private writeHandoff( reason: string, entries: MessageEntry[] = this.messages ): void
 	{
 		if ( entries.length <= 0 )
 		{
-			log( LOG_LEVEL.DEBUG, `Handoff skipped (no messages): ${reason}` );
+			log( LOG_LEVEL.DEBUG, `Handoff skipped (no messages): ${reason}` ) ;
 			return ;
 		}
 		try
 		{
 			const ts = timestamp() ;
-			const path = join( this.handoffDir, `${ts}.md` );
-			const content = buildFileContent( ts, reason, entries, this.opts.keep_last );
+			const path = join( this.handoffDir, `${ts}.md` ) ;
+			const content = buildFileContent( ts, reason, entries, this.opts.keep_last ) ;
 
-			mkdirSync( this.handoffDir, { recursive: true } );
-			writeFileSync( path, content );
+			mkdirSync( this.handoffDir, { recursive: true } ) ;
+			writeFileSync( path, content ) ;
 
-			rotateHandoffFiles( this.handoffDir, this.opts.max_stored_files );
+			rotateHandoffFiles( this.handoffDir, this.opts.max_stored_files ) ;
 
-			log( LOG_LEVEL.INFO, `Handoff written: ${reason}: ${path}` );
+			log( LOG_LEVEL.INFO, `Handoff written: ${reason}: ${path}` ) ;
 		}
 		catch ( err )
 		{
-			log( LOG_LEVEL.ERROR, `write failed: ${( err as Error ).message}` );
+			log( LOG_LEVEL.ERROR, `write failed: ${( err as Error ).message}` ) ;
 		}
 	}
 
@@ -344,7 +348,7 @@ class AutoHandoff
 
 		try
 		{
-			this.writeHandoff( `exit (${this.messages.length} messages)` );
+			this.writeHandoff( `exit (${this.messages.length} messages)` ) ;
 			this.flushMessages() ;
 		}
 		catch { /* non-fatal */ }
@@ -356,21 +360,21 @@ class AutoHandoff
 
 		try
 		{
-			const files = listHandoffFiles( this.handoffDir );
-			const loadCount = Math.min( this.opts.max_load_files, files.length );
+			const files = listHandoffFiles( this.handoffDir ) ;
+			const loadCount = Math.min( this.opts.max_load_files, files.length ) ;
 
 			if ( loadCount === 0 ) return null ;
 
 			const entries = files.slice( -loadCount )
 				.flatMap( f => parseFeedback( readFileSync( join( this.handoffDir, f ), "utf8" ) ) )
-				.slice( -this.opts.keep_last );
+				.slice( -this.opts.keep_last ) ;
 
-			log( LOG_LEVEL.INFO, `Handoff loaded: ${loadCount} file(s), ${entries.length} messages` );
+			log( LOG_LEVEL.INFO, `Handoff loaded: ${loadCount} file(s), ${entries.length} messages` ) ;
 			return entries ;
 		}
 		catch ( err )
 		{
-			log( LOG_LEVEL.ERROR, `on_start load failed: ${( err as Error ).message}` );
+			log( LOG_LEVEL.ERROR, `on_start load failed: ${( err as Error ).message}` ) ;
 			return null ;
 		}
 	}
@@ -403,19 +407,19 @@ class AutoHandoff
 	{
 		if ( this.pendingHandoff === null || !output.messages?.length ) return true ;
 
-		const injection = buildInjection( this.pendingHandoff );
+		const injection = buildInjection( this.pendingHandoff ) ;
 
 		output.messages.unshift( {
 			info: { role: "user", id: "handoff-resume" },
 			parts: [ { type: "text", text: injection } ],
 		} as MessageLike );
 
-		log( LOG_LEVEL.INFO, `Handoff injected: ${this.pendingHandoff.length} messages, ${injection.length} bytes` );
+		log( LOG_LEVEL.INFO, `Handoff injected: ${this.pendingHandoff.length} messages, ${injection.length} bytes` ) ;
 
 		if ( CONFIG.log_level === "debug" )
 		{
-			writeFileSync( join( this.projectDir, "handoff-resume.txt" ), injection );
-			log( LOG_LEVEL.DEBUG, `handoff-resume.txt written` );
+			writeFileSync( join( this.projectDir, "handoff-resume.txt" ), injection ) ;
+			log( LOG_LEVEL.DEBUG, `handoff-resume.txt written` ) ;
 		}
 
 		this.pendingHandoff = null ;
@@ -440,25 +444,25 @@ class AutoHandoff
 
 				if ( msg.info?.sessionID ) this.currentSessionID = msg.info.sessionID ;
 
-				const text = extractText( msg as MessageLike );
+				const text = extractText( msg as MessageLike ) ;
 				if ( !text ) continue ;
 
 				if ( this.isDedup( msg.info.role, text ) ) continue ;
 
-				this.messages.push( { role: msg.info.role, content: text } );
+				this.messages.push( { role: msg.info.role, content: text } ) ;
 
 				if ( msg.info.id ) this.seenMessageIds.add( msg.info.id ) ;
 			}
 
 			if ( this.shouldWritePeriodic() )
 			{
-				this.writeHandoff( `periodic (${this.messages.length} messages)` );
+				this.writeHandoff( `periodic (${this.messages.length} messages)` ) ;
 				this.flushMessages() ;
 			}
 		}
 		catch ( err )
 		{
-			log( LOG_LEVEL.ERROR, `messages.transform: ${( err as Error ).message}` );
+			log( LOG_LEVEL.ERROR, `messages.transform: ${( err as Error ).message}` ) ;
 		}
 	}
 
@@ -485,7 +489,7 @@ class AutoHandoff
 		}
 
 		process.removeListener( "exit", this._boundOnExit ) ;
-		log( LOG_LEVEL.INFO, "Disposed" );
+		log( LOG_LEVEL.INFO, "Disposed" ) ;
 	}
 }
 
@@ -503,3 +507,5 @@ export default ( async ( ctx: PluginInput ) =>
 		dispose: () => ah.dispose(),
 	};
 } ) satisfies Plugin ;
+
+// ─── END ──────────────────────────────────────────────────────────────
