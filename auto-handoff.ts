@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.1.1
+*	@version 1.1.2
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -424,7 +424,7 @@ class AutoHandoff
 
 	private injectHandoff( output: { messages?: MessageLike[] } ): boolean
 	{
-		if ( this.pendingHandoff === null || !output.messages?.length ) return true ;
+		if ( this.pendingHandoff === null ) return false ;
 
 		const injection = buildInjection( this.pendingHandoff ) ;
 
@@ -453,7 +453,12 @@ class AutoHandoff
 	{
 		try
 		{
-			if ( !this.injectHandoff( output ) ) return ;
+			if ( this.opts.on_start ) // on_start
+			{
+				await new Promise( r => setTimeout( r, 1000 ) ) ;
+				this.injectHandoff( output ) ;
+			}
+
 			if ( !output.messages?.length ) return ;
 
 			for ( const msg of output.messages )
