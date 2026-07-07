@@ -255,7 +255,7 @@ const buildInjection = ( entries: MessageEntry[] ): string =>
 const buildFileContent = ( ts: string, reason: string, entries: MessageEntry[], keepLast: number ): string =>
 {
 	const recent = entries.slice( -keepLast );
-	const block = recent.length > 0
+	const block = recent.length
 		? recent.map( e => `- [${e.role}] ${e.content}` ).join( "\n" )
 		: "(no messages captured)" ;
 
@@ -370,7 +370,7 @@ class AutoHandoff
 			const files = listHandoffFiles( this.handoffDir ) ;
 			const loadCount = Math.min( this.opts.max_load_files, files.length ) ;
 
-			if ( loadCount === 0 ) return null ;
+			if ( !loadCount ) return null ;
 
 			const entries = files.slice( -loadCount )
 				.flatMap( f => parseFeedback( readFileSync( join( this.handoffDir, f ), "utf8" ) ) )
@@ -486,7 +486,7 @@ class AutoHandoff
 					if ( last && !this.isDedup( last.role, last.content ) ) this.messages.push( last ) ;
 				}
 
-				if ( this.messages.length > 0 )
+				if ( this.messages.length )
 				{
 					this.writeHandoff( `dispose (${this.messages.length} messages)`, this.messages ) ;
 				}
