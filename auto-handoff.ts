@@ -304,7 +304,7 @@ class AutoHandoff
 		this._boundOnExit = () => this.onExit() ;
 		process.once( "exit", this._boundOnExit ) ;
 
-		this.pendingHandoff = this.loadHandoffs() ;
+		this.pendingHandoff = this.opts.on_start ? this.loadHandoffs() : null ;
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────
@@ -375,8 +375,6 @@ class AutoHandoff
 
 	private loadHandoffs(): MessageEntry[] | null
 	{
-		if ( !this.opts.on_start ) return null ;
-
 		try
 		{
 			const files = listHandoffFiles( this.handoffDir ) ;
