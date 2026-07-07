@@ -156,6 +156,10 @@ function timestamp(): string
 	return local.toISOString().slice( 0, 19 ).replace( 'T', '-' ).replace( /:/g, '' ) ;
 }
 
+const isValidRole = ( role: string ): boolean =>
+	["user", "assistant"].includes( role );
+
+
 // Extract plain text from a MessageLike, stripping system tags and compress artifacts
 const extractText = ( msg: MessageLike ): string =>
 {
@@ -441,6 +445,7 @@ class AutoHandoff
 			{
 				if ( this.isHandoffResume( msg ) ) continue ;
 				if ( this.isAlreadySeen( msg ) ) continue ;
+				if ( !isValidRole( msg.info.role ) ) continue ;
 
 				if ( msg.info?.sessionID ) this.currentSessionID = msg.info.sessionID ;
 
