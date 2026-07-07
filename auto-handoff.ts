@@ -156,8 +156,11 @@ function timestamp(): string
 	return local.toISOString().slice( 0, 19 ).replace( 'T', '-' ).replace( /:/g, '' ) ;
 }
 
+// Only valid role
 const isValidRole = ( role: string ): boolean =>
-	["user", "assistant"].includes( role );
+{
+	return [ "user", "assistant" ].includes( role ) ;
+};
 
 
 // Extract plain text from a MessageLike, stripping system tags and compress artifacts
