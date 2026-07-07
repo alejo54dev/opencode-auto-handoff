@@ -94,7 +94,17 @@ interface MessageEntry
 	content: string ;
 }
 
-// ─── Config ────────────────────────────────────────────────────────────────
+// ─── Global Helpers ──────────────────────────────────────────────────────────
+
+// Current local datetime as ISO-like string: "2026-07-06T20:30:26"
+function timestamp() : string
+{
+	const utc    = new Date() ;
+	const offset = utc.getTimezoneOffset() ;
+	const local  = new Date( utc.getTime() - offset * 60 * 1000 ) ;
+
+	return local.toISOString().slice( 0, 19 ) ;
+}
 
 // Load config from ~/.config/opencode/auto-handoff.jsonc, fall back to defaults
 function loadConfig(): typeof CONFIG
@@ -126,8 +136,6 @@ function loadConfig(): typeof CONFIG
 	return opts ;
 }
 
-// ─── Logger ────────────────────────────────────────────────────────────────
-
 // Append timestamped entry to ~/.config/opencode/auto-handoff.log
 function log( level : number, message : string ) : void
 {
@@ -139,7 +147,7 @@ function log( level : number, message : string ) : void
 
 	try
 	{
-		appendFileSync( LOG_FILE, `[${ new Date().toISOString() }] [${ label }]: ${ message }\n` ) ;
+		appendFileSync( LOG_FILE, `[${ timestamp() }] [${ label }]: ${ message }\n` ) ;
 	}
 	catch {}
 }
@@ -147,7 +155,7 @@ function log( level : number, message : string ) : void
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 // Generate timestamp for handoff filenames: "2026-07-06-203026" (system local time)
-function timestamp(): string
+function fileTimestamp(): string
 {
 	const utc    = new Date() ;
 	const offset = utc.getTimezoneOffset() ;
@@ -336,7 +344,7 @@ class AutoHandoff
 		}
 		try
 		{
-			const ts = timestamp() ;
+			const ts = fileTimestamp() ;
 			const path = join( this.handoffDir, `${ts}.md` ) ;
 			const content = buildFileContent( ts, reason, entries, this.opts.keep_last ) ;
 
