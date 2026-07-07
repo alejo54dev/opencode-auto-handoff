@@ -149,9 +149,9 @@ function log( level : number, message : string ) : void
 // Generate timestamp for handoff filenames: "2026-07-06-203026" (system local time)
 function timestamp(): string
 {
-	const d      = new Date() ;
-	const offset = d.getTimezoneOffset() ;
-	const local  = new Date( d.getTime() - offset * 60 * 1000 ) ;
+	const utc    = new Date() ;
+	const offset = utc.getTimezoneOffset() ;
+	const local  = new Date( utc.getTime() - offset * 60 * 1000 ) ;
 
 	return local.toISOString().slice( 0, 19 ).replace( 'T', '-' ).replace( /:/g, '' ) ;
 }
@@ -166,12 +166,16 @@ const isValidRole = ( role: string ): boolean =>
 // Extract plain text from a MessageLike, stripping system tags and compress artifacts
 const extractText = ( msg: MessageLike ): string =>
 {
-	const text = ( msg.parts ?? [] )
-		.filter( p => p.type === "text" && typeof p.text === "string" )
-		.map( p => p.text! )
-		.join( "\n" ) ;
+	const text: string[] = [] ;
+	const parts = msg.parts ?? [] ;
 
-	return text.replace( new RegExp( STRIP_PATTERNS.join( "|" ), "gi" ), "" ).trim() ;
+	for ( const part of parts )
+	{
+		if ( part.type === "text" )
+			text.push( part.text! ) ;
+	}
+
+	return text.join( "\n" ).replace( new RegExp( STRIP_PATTERNS.join( "|" ), "gi" ), "" ).trim() ;
 };
 
 // ─── Parsers ───────────────────────────────────────────────────────────────
