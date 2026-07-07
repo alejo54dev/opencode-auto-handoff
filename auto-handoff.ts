@@ -22,7 +22,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.1.2
+*	@version 1.1.3
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -451,10 +451,10 @@ class AutoHandoff
 	{
 		try
 		{
-			if ( this.opts.on_start ) // on_start
+			if ( this.opts.on_start ) // on_start !!
 			{
-				await new Promise( r => setTimeout( r, 1000 ) ) ;
 				this.injectHandoff( output ) ;
+				await new Promise( r => setTimeout( r, 1000 ) ) ;
 			}
 
 			if ( !output.messages?.length ) return ;
