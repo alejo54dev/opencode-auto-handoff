@@ -1,6 +1,6 @@
 # Auto Handoff — (your session is safe)
 
-![Version](https://img.shields.io/badge/version-1.1.2-blue)
+![Version](https://img.shields.io/badge/version-1.1.4-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![OpenCode](https://img.shields.io/badge/OpenCode-plugin-purple)
 
@@ -84,6 +84,7 @@ Copy `auto-handoff.jsonc` (included in this repo) to `~/.config/opencode/` and e
 
 ```jsonc
 {
+	"enabled": true,        // master switch
 	"every_messages": 20,   // trigger periodic write every N messages (0 = never)
 	"on_exit": true,        // write handoff on dispose/exit
 	"on_start": true,       // load recent handoffs on startup
@@ -96,6 +97,7 @@ Copy `auto-handoff.jsonc` (included in this repo) to `~/.config/opencode/` and e
 
 | Field | Default | Description |
 |---|---|---|
+| `enabled` | `true` | master switch |
 | `every_messages` | `20` | trigger periodic write every N messages (user + assistant). `0` = never periodic, only dispose/exit |
 | `on_exit` | `true` | write handoff on dispose/exit |
 | `on_start` | `true` | load recent handoffs on startup |
@@ -163,4 +165,4 @@ Less is more. :)
 
 ## 📄 License
 
-MIT — version 1.1.2
+MIT — version 1.1.4

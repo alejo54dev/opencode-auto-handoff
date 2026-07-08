@@ -12,6 +12,7 @@
 *
 *	@example ~/.config/opencode/auto-handoff.jsonc
 *	{
+*		"enabled": true,        // master switch
 *		"every_messages": 20,   // trigger periodic write every N messages (0 = never)
 *		"on_exit": true,        // write handoff on dispose/exit
 *		"on_start": true,       // load recent handoffs on startup
@@ -22,7 +23,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.1.3
+*	@version 1.1.4
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -51,6 +52,7 @@ const LOG_LEVEL =
 
 const CONFIG =
 {
+	enabled: true,           // master switch
 	every_messages: 20,      // trigger periodic write every N messages (0 = never)
 	on_exit: true,           // write handoff on dispose/exit
 	on_start: true,          // load recent handoffs on startup
@@ -122,6 +124,7 @@ function loadConfig(): typeof CONFIG
 
 	const opts =
 	{
+		enabled:           file.enabled                       ?? CONFIG.enabled           ,
 		every_messages:    Math.max( 0, file.every_messages   ?? file.every_turns       ?? CONFIG.every_messages ),
 		on_exit:           file.on_exit                       ?? CONFIG.on_exit           ,
 		on_start:          file.on_start                      ?? CONFIG.on_start          ,
@@ -452,10 +455,7 @@ class AutoHandoff
 		try
 		{
 			if ( this.opts.on_start ) // on_start !!
-			{
 				this.injectHandoff( output ) ;
-				await new Promise( r => setTimeout( r, 1000 ) ) ;
-			}
 
 			if ( !output.messages?.length ) return ;
 
@@ -521,6 +521,13 @@ class AutoHandoff
 export default ( async ( ctx: PluginInput ) =>
 {
 	const opts = loadConfig() ;
+
+	if ( !opts.enabled )
+	{
+		log( LOG_LEVEL.INFO, "Disabled" ) ;
+		return {} ;
+	}
+
 	const ah = new AutoHandoff( opts, ctx.directory, ctx.client ) ;
 
 	log( LOG_LEVEL.INFO, `Initialized | project: ${ctx.directory}` ) ;
