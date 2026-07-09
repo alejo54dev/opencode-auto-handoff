@@ -246,7 +246,7 @@ const buildInjection = ( entries: MessageEntry[] ): string =>
 		.join( "\n" );
 
 	return (
-		`<session-resume>\n\n` +
+		`<handoff-resume>\n\n` +
 
 		`# OBJECTIVE\n` +
 		`Generate a concise summary of the previous session based only on the feedback data.\n` +
@@ -265,7 +265,7 @@ const buildInjection = ( entries: MessageEntry[] ): string =>
 		`# FINAL\n` +
 		`Load my prefixed skills\n\n` +
 
-		`</session-resume>`
+		`</handoff-resume>`
 	);
 };
 
