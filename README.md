@@ -1,6 +1,6 @@
 # Auto Handoff — (your session is safe)
 
-![Version](https://img.shields.io/badge/version-1.1.4-blue)
+![Version](https://img.shields.io/badge/version-1.1.6-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![OpenCode](https://img.shields.io/badge/OpenCode-plugin-purple)
 
@@ -10,7 +10,7 @@
 
 > Close OpenCode without losing the thread.
 
-- **Auto save** — every N messages dumps to a .md file. Plain text, readable, versionable.
+- **Auto save** — circular buffer (`window_size`) writes .md on each cycle if `periodic: true`. Plain text, readable, versionable.
 
 - **Auto resurrection** — close saves, open reads. Everything is back where you left it.
 
@@ -23,6 +23,8 @@ The handoff speaks the same language as the model. What the model writes, anothe
 On load, it recovers only the conversation — no headers, no metadata, no junk. Just pure chat back into context.
 
 ## 🔄 How it works
+
+The plugin maintains a **circular buffer** of `window_size` messages (user + assistant). When the buffer fills, it **cycles** (discards oldest messages). If `periodic: true`, it also writes a `.handoff/<ts>.md` file on each cycle. On `on_exit`, the current buffer content is saved. On `on_start`, recent `.md` files are loaded and the last `window_size` messages are injected as `<handoff-resume>` — so the model picks up exactly where it left off.
 
 ```mermaid
 flowchart TD
@@ -37,8 +39,8 @@ flowchart TD
     E -->|"❌ No"| G["📥 Capture messages"]
     F --> G
 
-    G --> H{"Counter >=<br/>every_messages?"}
-    H -->|"✅ Yes"| I["💾 Save handoff .md<br/>→ flush buffer"]
+    G --> H{"Buffer >=<br/>window_size?"}
+    H -->|"✅ Yes"| I["💾 Save .md (if periodic)<br/>→ flush buffer"]
     H -.->|"❌ No"| D
     I -.-> D
 
@@ -65,7 +67,7 @@ flowchart TD
 
 | Trigger | When | Action |
 |---|---|---|
-| `every_messages` | message counter (user + assistant) reaches N | writes `.handoff/<ts>.md` |
+| `window_size` | buffer (user + assistant) reaches `window_size` | if `periodic: true`, writes `.handoff/<ts>.md`; always cycles buffer |
 | `dispose` hook | clean shutdown | reads latest messages via API and saves (if `on_exit: true`) |
 | `process.once("exit")` | session ends | saves whatever was captured so far |
 | `on_start` | plugin load | reads latest `.handoff/<ts>.md` files, extracts full messages via `parseFeedback()`, stores as `pendingHandoff` |
@@ -84,26 +86,26 @@ Copy `auto-handoff.jsonc` (included in this repo) to `~/.config/opencode/` and e
 
 ```jsonc
 {
-	"enabled": true,        // master switch
-	"every_messages": 20,   // trigger periodic write every N messages (0 = never)
-	"on_exit": true,        // write handoff on dispose/exit
-	"on_start": true,       // load recent handoffs on startup
-	"keep_last": 20,        // max messages per handoff (write & load)
-	"max_stored_files": 10, // max .handoff/*.md files to keep (rotation)
-	"max_load_files": 5,    // max recent handoff files to load on startup
-	"log_level": "info"     // silent, error, info, debug
+	"enabled": true,           // master switch
+	"on_exit": true,           // write handoff on dispose/exit
+	"on_start": true,          // load recent handoffs on startup
+	"window_size": 20,         // max buffer size; cycles when full, writes if periodic
+	"periodic": true,          // write .md file on every buffer cycle
+	"max_stored_files": 50,    // max .handoff/*.md files to keep (rotation)
+	"max_load_files": 5,       // max recent handoff files to load on startup
+	"log_level": "info",       // silent, error, info, debug
 }
 ```
 
 | Field | Default | Description |
 |---|---|---|
 | `enabled` | `true` | master switch |
-| `every_messages` | `20` | trigger periodic write every N messages (user + assistant). `0` = never periodic, only dispose/exit |
 | `on_exit` | `true` | write handoff on dispose/exit |
 | `on_start` | `true` | load recent handoffs on startup |
-| `keep_last` | `20` | max messages per handoff (write & load, minimum 1) |
-| `max_stored_files` | `10` | max `.handoff/*.md` files to keep (rotation, minimum 1) |
-| `max_load_files` | `5` | max recent handoff files to load on startup (minimum 1) |
+| `window_size` | `20` | max buffer size; cycles when full (min 1). If `periodic: true`, writes `.md` on each cycle |
+| `periodic` | `true` | write `.md` file on every buffer cycle |
+| `max_stored_files` | `10` | max `.handoff/*.md` files to keep (rotation, min 1) |
+| `max_load_files` | `5` | max recent handoff files to load on startup (min 1) |
 | `log_level` | `"info"` | log level (`silent`, `error`, `info`, `debug`) |
 
 If the file doesn't exist, defaults are used.
@@ -150,7 +152,7 @@ Messages are dumped in chronological order with a `[user]` or `[assistant]` pref
 
 | Hook | Purpose |
 |---|---|
-| `experimental.chat.messages.transform` | injects pending handoff (once), captures user + assistant messages, writes handoff every N |
+| `experimental.chat.messages.transform` | injects pending handoff (once), captures messages, writes .md on buffer cycle (if periodic) |
 | `process.once("exit")` | saves on session close |
 | `dispose` | reads latest via API and saves when closing |
 
@@ -165,4 +167,4 @@ Less is more. :)
 
 ## 📄 License
 
-MIT — version 1.1.4
+MIT — version 1.1.6

@@ -2,7 +2,7 @@
 *	auto-handoff.ts
 *
 *	OpenCode plugin — periodic + exit handoff writer, startup handoff reader.
-*	Writes .handoff/<timestamp>.md every N messages (user + assistant) and on session exit.
+ *	Circular buffer (window_size) writes .handoff/<timestamp>.md on cycle (if periodic) and on session exit.
 *	Loads handoffs on startup. No keywords, no database.
 *
 *	Install: cp auto-handoff.ts ~/.config/opencode/plugins/auto-handoff.ts
@@ -12,18 +12,18 @@
 *
 *	@example ~/.config/opencode/auto-handoff.jsonc
 *	{
-*		"enabled": true,        // master switch
-*		"every_messages": 20,   // trigger periodic write every N messages (0 = never)
-*		"on_exit": true,        // write handoff on dispose/exit
-*		"on_start": true,       // load recent handoffs on startup
-*		"keep_last": 20,        // max messages per handoff (write & load)
-*		"max_stored_files": 10, // max .handoff/*.md files to keep (rotation)
-*		"max_load_files": 5,    // max recent handoff files to load on startup
-*		"log_level": "info",    // silent, error, info, debug
+*		"enabled": true,           // master switch
+*		"on_exit": true,           // write handoff on dispose/exit
+*		"on_start": true,          // load recent handoffs on startup
+*		"window_size": 20,         // max buffer size; cycles when full, writes if periodic
+*		"periodic": true,          // write .md file on every buffer cycle
+*		"max_stored_files": 50,    // max .handoff/*.md files to keep (rotation)
+*		"max_load_files": 5,       // max recent handoff files to load on startup
+*		"log_level": "info",       // silent, error, info, debug
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.1.4
+*	@version 1.1.6
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -53,10 +53,10 @@ const LOG_LEVEL =
 const CONFIG =
 {
 	enabled: true,           // master switch
-	every_messages: 20,      // trigger periodic write every N messages (0 = never)
 	on_exit: true,           // write handoff on dispose/exit
 	on_start: true,          // load recent handoffs on startup
-	keep_last: 20,           // max messages per handoff (write & load)
+	window_size: 20,         // max buffer size; cycles when full, writes if periodic
+	periodic: true,          // write .md file on every buffer cycle
 	max_stored_files: 10,    // max .handoff/*.md files to keep (rotation)
 	max_load_files: 5,       // max recent handoff files to load on startup
 	log_level: "info" as "silent" | "error" | "info" | "debug",
@@ -125,10 +125,10 @@ function loadConfig(): typeof CONFIG
 	const opts =
 	{
 		enabled:           file.enabled                       ?? CONFIG.enabled           ,
-		every_messages:    Math.max( 0, file.every_messages   ?? file.every_turns       ?? CONFIG.every_messages ),
 		on_exit:           file.on_exit                       ?? CONFIG.on_exit           ,
 		on_start:          file.on_start                      ?? CONFIG.on_start          ,
-		keep_last:         Math.max( 1, file.keep_last        ?? CONFIG.keep_last        ),
+		window_size:       Math.max( 1, file.window_size      ?? CONFIG.window_size      ),
+		periodic:          file.periodic                      ?? CONFIG.periodic          ,
 		max_stored_files:  Math.max( 1, file.max_stored_files ?? CONFIG.max_stored_files ),
 		max_load_files:    Math.max( 1, file.max_load_files   ?? CONFIG.max_load_files   ),
 		log_level:         file.log_level                     ?? CONFIG.log_level         ,
@@ -246,30 +246,33 @@ const buildInjection = ( entries: MessageEntry[] ): string =>
 		.join( "\n" );
 
 	return (
-		`<handoff-resume>\n\n` +
-		`# ⚠️ HARD RULE — read this first\n\n` +
-		`The feedback records below are your **only** source of truth for previous session state.\n\n` +
-		`## 🚫 PROHIBITED — doing any of these is a **bug**, not a mistake\n\n` +
-		`- Do NOT run \`readdir\`, \`readFile\`, \`glob\`, or \`grep\` on \`.handoff/\`\n` +
-		`- Do NOT run \`git log\`, \`git diff\`, \`git status\`, or any git inspection command\n` +
-		`- Do NOT re-read any project file to "verify" what the handoff already tells you\n\n` +
-		`If you do any of the above, you have **failed this turn** — the handoff is authoritative.\n\n` +
-		`## ✅ What to do instead\n\n` +
-		`Synthesize directly from the feedback records below. Present a clear, structured markdown summary covering:\n` +
-		`- **Where we left off** — last task and current state\n` +
-		`- **Key context** — files touched, decisions made, constraints discovered\n` +
-		`- **Next step** — what was pending or in progress\n` +
-		`- **Load skills** — load the prefixed skills\n\n` +
-		`## Feedback records\n\n` +
-		`${block}` +
-		`\n\n</handoff-resume>`
+		`<session-resume>\n\n` +
+
+		`# OBJECTIVE\n` +
+		`Generate a concise summary of the previous session based only on the feedback data.\n` +
+		`The feedback data are enclosed in the <feedback> tags.\n\n` +
+
+		`# OUTPUT FORMAT (strict markdown)\n` +
+		`Generate exactly these 5 sections:\n` +
+		`- **Where we left off**: [Last task and current state, as stated in feedback]\n` +
+		`- **Key context**: [Files mentioned, decisions taken, constraints]\n` +
+		`- **Next step**: [What was pending or in progress]\n` +
+		`- **Blocks**: [Blockers or issues explicitly mentioned]\n` +
+		`- **Notes**: [Any other relevant info for the next assistant]\n\n` +
+
+		`<feedback>\n ${block} \n</feedback>\n\n` +
+
+		`# FINAL\n` +
+		`Load my prefixed skills\n\n` +
+
+		`</session-resume>`
 	);
 };
 
 // Build .md file content from message entries
-const buildFileContent = ( ts: string, reason: string, entries: MessageEntry[], keepLast: number ): string =>
+const buildFileContent = ( ts: string, reason: string, entries: MessageEntry[], maxEntries: number ): string =>
 {
-	const recent = entries.slice( -keepLast );
+	const recent = entries.slice( -maxEntries );
 	const block = recent.length
 		? recent.map( e => `- [${e.role}] ${e.content}` ).join( "\n" )
 		: "(no messages captured)" ;
@@ -335,7 +338,7 @@ class AutoHandoff
 
 	private shouldWritePeriodic(): boolean
 	{
-		return ( this.opts.every_messages > 0 && this.messages.length >= this.opts.every_messages ) ;
+		return ( this.opts.periodic && ( this.messages.length >= this.opts.window_size ) ) ;
 	}
 
 	private writeHandoff( reason: string, entries: MessageEntry[] = this.messages ): void
@@ -349,7 +352,7 @@ class AutoHandoff
 		{
 			const ts = fileTimestamp() ;
 			const path = join( this.handoffDir, `${ts}.md` ) ;
-			const content = buildFileContent( ts, reason, entries, this.opts.keep_last ) ;
+			const content = buildFileContent( ts, reason, entries, this.opts.window_size ) ;
 
 			mkdirSync( this.handoffDir, { recursive: true } ) ;
 			writeFileSync( path, content ) ;
@@ -387,7 +390,7 @@ class AutoHandoff
 
 			const entries = files.slice( -loadCount )
 				.flatMap( f => parseFeedback( readFileSync( join( this.handoffDir, f ), "utf8" ) ) )
-				.slice( -this.opts.keep_last ) ;
+				.slice( -this.opts.window_size ) ;
 
 			log( LOG_LEVEL.INFO, `Handoff loaded: ${loadCount} file(s), ${entries.length} messages` ) ;
 			return entries ;
