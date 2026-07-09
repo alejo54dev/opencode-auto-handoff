@@ -1,6 +1,6 @@
 # Auto Handoff — (your session is safe)
 
-![Version](https://img.shields.io/badge/version-1.1.6-blue)
+![Version](https://img.shields.io/badge/version-1.1.7-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![OpenCode](https://img.shields.io/badge/OpenCode-plugin-purple)
 
@@ -24,7 +24,13 @@ On load, it recovers only the conversation — no headers, no metadata, no junk.
 
 ## 🔄 How it works
 
-The plugin maintains a **circular buffer** of `window_size` messages (user + assistant). When the buffer fills, it **cycles** (discards oldest messages). If `periodic: true`, it also writes a `.handoff/<ts>.md` file on each cycle. On `on_exit`, the current buffer content is saved. On `on_start`, recent `.md` files are loaded and the last `window_size` messages are injected as `<handoff-resume>` — so the model picks up exactly where it left off.
+The plugin uses a single hook — `experimental.chat.messages.transform` — for both handoff injection and message capture:
+
+1. **Injection (once, on first turn):** if `on_start` is true and handoff files exist, `injectHandoff()` unshifts a `<handoff-resume>` user message into `output.messages`. The buffer is flushed after injection.
+2. **Capture (every turn):** iterates `output.messages`, deduplicates via `seenMessageIds` + `isDedup`, extracts clean text, pushes to circular buffer.
+3. **Periodic write (if `periodic: true`):** when buffer reaches `window_size`, writes `.handoff/<ts>.md`, then flushes.
+
+On startup, `.handoff/*.md` files are parsed via `parseFeedback()` into `pendingHandoff`. On exit/dispose the buffer is saved and rotated (FIFO, `max_stored_files`).
 
 ```mermaid
 flowchart TD
@@ -66,11 +72,13 @@ flowchart TD
 ```
 
 | Trigger | When | Action |
-|---|---|---|
-| `window_size` | buffer (user + assistant) reaches `window_size` | if `periodic: true`, writes `.handoff/<ts>.md`; always cycles buffer |
-| `dispose` hook | clean shutdown | reads latest messages via API and saves (if `on_exit: true`) |
+|---|---|---|---|
+| `on_start` | plugin load | reads latest `.handoff/<ts>.md` files, extracts messages via `parseFeedback()`, stores as `pendingHandoff` |
+| first `messages.transform` call | first turn | calls `injectHandoff()` — unshifts `<handoff-resume>` user message to `output.messages`, clears pending, flushes buffer |
+| each `messages.transform` call | every turn | deduplicates and captures user+assistant messages into buffer |
+| buffer >= `window_size` + `periodic: true` | buffer fills | writes `.handoff/<ts>.md`; always cycles buffer |
+| `dispose` hook | clean shutdown | reads latest message via API, writes handoff, removes exit listener |
 | `process.once("exit")` | session ends | saves whatever was captured so far |
-| `on_start` | plugin load | reads latest `.handoff/<ts>.md` files, extracts full messages via `parseFeedback()`, stores as `pendingHandoff` |
 
 ## 🚀 Installation
 
@@ -151,10 +159,10 @@ Messages are dumped in chronological order with a `[user]` or `[assistant]` pref
 ## 🔌 Plugin hooks
 
 | Hook | Purpose |
-|---|---|
-| `experimental.chat.messages.transform` | injects pending handoff (once), captures messages, writes .md on buffer cycle (if periodic) |
+|---|---|---|
+| `experimental.chat.messages.transform` | injects pending handoff via `injectHandoff()` (once), captures and deduplicates messages, writes .md on buffer cycle (if periodic) |
+| `dispose` | reads latest via API, writes handoff, removes exit listener |
 | `process.once("exit")` | saves on session close |
-| `dispose` | reads latest via API and saves when closing |
 
 ## 💬 Notes
 
@@ -167,4 +175,4 @@ Less is more. :)
 
 ## 📄 License
 
-MIT — version 1.1.6
+MIT — version 1.1.7

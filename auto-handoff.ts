@@ -23,7 +23,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.1.6
+*	@version 1.1.7
 *	@author Alejandro Carraretto
 *	@author MiniMax-M3
 *	@license MIT
@@ -246,27 +246,41 @@ const buildInjection = ( entries: MessageEntry[] ): string =>
 		.join( "\n" );
 
 	return (
-		`<handoff-resume>\n\n` +
+		"<handoff-resume>\n" +
 
-		`# OBJECTIVE\n` +
-		`Generate a concise summary of the previous session based only on the feedback data.\n` +
-		`The feedback data are enclosed in the <feedback> tags.\n\n` +
+		"# Generate a handoff summary from the previous session\n" +
+		"- The session data is inside the <feedback> tags below\n\n" +
 
-		`# OUTPUT FORMAT (strict markdown)\n` +
-		`Generate exactly these 5 sections:\n` +
-		`- **Where we left off**: [Last task and current state, as stated in feedback]\n` +
-		`- **Key context**: [Files mentioned, decisions taken, constraints]\n` +
-		`- **Next step**: [What was pending or in progress]\n` +
-		`- **Blocks**: [Blockers or issues explicitly mentioned]\n` +
-		`- **Notes**: [Any other relevant info for the next assistant]\n\n` +
+		"# Synthesize the session data on this markdown template:\n" +
+		"- **Where we left off**: [last task + current state]\n" +
+		"- **Key context**: [files, decisions, constraints]\n" +
+		"- **Next step**: [pending work]\n" +
+		"- **Blocks**: [blockers or issues]\n" +
+		"- **Notes**: [other relevant info]\n\n" +
 
-		`<feedback>\n ${block} \n</feedback>\n\n` +
+		"# Handoff feedback block\n" +
+		"<feedback>\n" + block + "\n</feedback>\n" +
 
-		`# FINAL\n` +
-		`Load my prefixed skills\n\n` +
-
-		`</handoff-resume>`
+		"</handoff-resume>"
 	);
+// 	return (
+// 		"<handoff-resume>\n\n" +
+//
+// 		"Read newest 5 .md files from <PROJECT_ROOT>/.handoff/ and load in descending order\n" +
+// 		"Extract and synthesize the feedback/conversation from these files.\n" +
+//
+// 		"Output summary in this markdown template:\n" +
+// 		"- **Where we left off**: [last task + current state]\n" +
+// 		"- **Key context**: [files, decisions, constraints]\n" +
+// 		"- **Next step**: [pending work]\n" +
+// 		"- **Blocks**: [blockers or issues]\n" +
+// 		"- **Notes**: [other relevant info]\n\n" +
+//
+// 		"If no files: No previous session found.'\n" +
+// 		"Use fs.readdirSync, not glob.\n\n" +
+//
+// 		"</handoff-resume>"
+// 	);
 };
 
 // Build .md file content from message entries
@@ -453,7 +467,7 @@ class AutoHandoff
 
 	// ── Public hooks ──────────────────────────────────────────────────────
 
-	public async transform( _input: unknown, output: { messages?: MessageLike[] } ): Promise<void>
+	public async transform( output: { messages?: MessageLike[] } ): Promise<void>
 	{
 		try
 		{
@@ -536,7 +550,10 @@ export default ( async ( ctx: PluginInput ) =>
 	log( LOG_LEVEL.INFO, `Initialized | project: ${ctx.directory}` ) ;
 
 	return {
-		"experimental.chat.messages.transform": ( i: unknown, o: { messages?: MessageLike[] } ) => ah.transform( i, o ),
+		"experimental.chat.messages.transform": async ( input: unknown, output: { messages?: MessageLike[] } ) =>
+		{
+			ah.transform( output ) ;
+		},
 		dispose: () => ah.dispose(),
 	};
 } ) satisfies Plugin ;
