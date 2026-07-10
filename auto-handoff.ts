@@ -266,18 +266,18 @@ const buildInjection = ( entries: MessageEntry[] ): string =>
 // 	return (
 // 		"<handoff-resume>\n\n" +
 //
-// 		"Read newest 5 .md files from <PROJECT_ROOT>/.handoff/ and load in descending order\n" +
-// 		"Extract and synthesize the feedback/conversation from these files.\n" +
+// 		"# Generate a handoff summary from the previous session\n" +
+// 		"- Read newest 5 .md files from <PROJECT_ROOT>/.handoff/ and load in descending order\n" +
 //
-// 		"Output summary in this markdown template:\n" +
+// 		"# Synthesize the session data on this markdown template:\n" +
 // 		"- **Where we left off**: [last task + current state]\n" +
 // 		"- **Key context**: [files, decisions, constraints]\n" +
 // 		"- **Next step**: [pending work]\n" +
 // 		"- **Blocks**: [blockers or issues]\n" +
 // 		"- **Notes**: [other relevant info]\n\n" +
 //
-// 		"If no files: No previous session found.'\n" +
-// 		"Use fs.readdirSync, not glob.\n\n" +
+// 		"If no files: No previous session found\n" +
+// 		"Use fs.readdirSync, not glob\n\n" +
 //
 // 		"</handoff-resume>"
 // 	);
