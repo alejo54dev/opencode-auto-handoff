@@ -89,6 +89,8 @@ cp auto-handoff.ts ~/.config/opencode/plugins/auto-handoff.ts
 
 The plugin loads automatically when OpenCode starts. No manual registration required.
 
+No npm, no build step, no dependencies. OpenCode runs TypeScript natively.
+
 ## ⚙️ Configuration
 
 Copy `auto-handoff.jsonc` (included in this repo) to `~/.config/opencode/` and edit:
