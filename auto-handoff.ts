@@ -66,12 +66,12 @@ const CONFIG =
 const FILTER_PATTERNS =
 [
 	// Reference: https://github.com/Opencode-DCP/opencode-dynamic-context-pruning/blob/master/lib/messages/utils.ts
-	"<dcp[^>]*>[\\s\\S]*?<\\/dcp[^>]*>",
-	"<\\/?dcp[^>]*>",
-// 	"\\[Tool output truncated[\\s\\S]*",
-// 	"\\[Old tool result[\\s\\S]*",
-// 	"▣\\s*(?:DCP|Compression)[\\s\\S]*",
-// 	"\\[Compressed[\\s\\S]*",
+	/<dcp[^>]*>[\s\S]*?<\/dcp[^>]*>/gi,
+	/<\/?dcp[^>]*>/gi,
+	/\[Tool output truncated/gi,
+	/\[Old tool result/gi,
+	/▣\s*(?:DCP|Compression)[\s\S]*/gi,
+	/\[Compressed[\s\S]*/gi,
 ];
 
 // ─── Interfaces ────────────────────────────────────────────────────────────
@@ -209,23 +209,23 @@ class AutoHandoff
 	}
 
 	// Extract plain text from a message, stripping runtime parts and noise tags
-	protected extractText( msg: MessageLike ): string
+	protected extractText( message: MessageLike ): string
 	{
-		const text: string[] = [] ;
-		const parts = msg.parts ?? [] ;
+		const chunks: string[] = [] ;
+		const parts = message.parts ?? [] ;
 
 		for ( const part of parts )
 		{
 			if ( this.isRuntime( part ) ) continue ;
-			if ( part.text ) text.push( part.text ) ;
+			if ( part.text ) chunks.push( part.text ) ;
 		}
 
-		let result = text.join( "\n" ) ;
+		let text = chunks.join( "\n" ) ;
 
 		for ( const pattern of FILTER_PATTERNS )
-			result = result.replace( new RegExp( pattern, "gi" ), "" ) ;
+			text = text.replace( pattern, "" ) ;
 
-		return result.trim() ;
+		return text.trim() ;
 	}
 
 	// Parse a .md handoff file into MessageEntry[] (role + content lines)
