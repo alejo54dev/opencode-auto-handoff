@@ -157,14 +157,6 @@ periodic (21 messages)
 
 Messages are dumped in chronological order with a `[user]` or `[assistant]` prefix to mark the role. Internal markdown content of each message (headers, bold, lists) is preserved as-is.
 
-## 🔌 Plugin hooks
-
-| Hook | Purpose |
-|---|---|---|
-| `experimental.chat.messages.transform` | injects pending handoff via `injectHandoff()` (once), captures and deduplicates messages, writes .md on buffer cycle (if periodic) |
-| `dispose` | reads latest via API, writes handoff, removes exit listener |
-| `process.once("exit")` | saves on session close (Node process listener, not an OpenCode plugin hook) |
-
 ## 💬 Notes
 
 - Injected `<handoff-resume>` is marked `synthetic: true` so OpenCode treats it as system content, not a real user turn.
