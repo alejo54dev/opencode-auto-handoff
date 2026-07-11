@@ -1,6 +1,6 @@
 # Auto Handoff — (your session is safe)
 
-![Version](https://img.shields.io/badge/version-1.1.7-blue)
+![Version](https://img.shields.io/badge/version-1.1.10-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![OpenCode](https://img.shields.io/badge/OpenCode-plugin-purple)
 
@@ -78,12 +78,12 @@ flowchart TD
 | each `messages.transform` call | every turn | deduplicates and captures user+assistant messages into buffer |
 | buffer >= `window_size` + `periodic: true` | buffer fills | writes `.handoff/<ts>.md`; always cycles buffer |
 | `dispose` hook | clean shutdown | reads latest message via API, writes handoff, removes exit listener |
-| `process.once("exit")` | session ends | saves whatever was captured so far |
+| `process.once("exit")` (process listener, not an OpenCode hook) | session ends | saves whatever was captured so far |
 
 ## 🚀 Installation
 
 ```bash
-cp auto-handoff.ts ~/.config/opencode/plugins/
+cp auto-handoff.ts ~/.config/opencode/plugins/auto-handoff.ts
 ```
 
 The plugin loads automatically when OpenCode starts. No manual registration required.
@@ -99,7 +99,7 @@ Copy `auto-handoff.jsonc` (included in this repo) to `~/.config/opencode/` and e
 	"on_start": true,          // load recent handoffs on startup
 	"window_size": 20,         // max buffer size; cycles when full, writes if periodic
 	"periodic": true,          // write .md file on every buffer cycle
-	"max_stored_files": 50,    // max .handoff/*.md files to keep (rotation)
+	"max_stored_files": 10,    // max .handoff/*.md files to keep (rotation)
 	"max_load_files": 5,       // max recent handoff files to load on startup
 	"log_level": "info",       // silent, error, info, debug
 }
@@ -162,9 +162,11 @@ Messages are dumped in chronological order with a `[user]` or `[assistant]` pref
 |---|---|---|
 | `experimental.chat.messages.transform` | injects pending handoff via `injectHandoff()` (once), captures and deduplicates messages, writes .md on buffer cycle (if periodic) |
 | `dispose` | reads latest via API, writes handoff, removes exit listener |
-| `process.once("exit")` | saves on session close |
+| `process.once("exit")` | saves on session close (Node process listener, not an OpenCode plugin hook) |
 
 ## 💬 Notes
+
+- Injected `<handoff-resume>` is marked `synthetic: true` so OpenCode treats it as system content, not a real user turn.
 
 Less is more. :)
 
@@ -175,4 +177,4 @@ Less is more. :)
 
 ## 📄 License
 
-MIT — version 1.1.7
+MIT — version 1.1.10
