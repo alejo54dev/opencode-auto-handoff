@@ -2,7 +2,7 @@
 *	auto-handoff.ts
 *
 *	OpenCode plugin — periodic + exit handoff writer, startup handoff reader.
- *	Circular buffer (window_size) writes .handoff/<timestamp>.md on cycle (if periodic) and on session exit.
+*	Circular buffer (window_size) writes .handoff/<timestamp>.md on cycle (if periodic) and on session exit.
 *	Loads handoffs on startup. No keywords, no database.
 *
 *	Install: cp auto-handoff.ts ~/.config/opencode/plugins/auto-handoff.ts
@@ -25,7 +25,7 @@
 *	@name auto-handoff plugin.
 *	@version 1.1.10
 *	@author Alejandro Carraretto
-*	@author MiniMax-M3
+*	@author Hy3
 *	@license MIT
 */
 
@@ -88,7 +88,7 @@ interface MessageEntry
 	content: string ;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 // Current local datetime as ISO-like string: "2026-07-06T20:30:26"
 function timestamp() : string
@@ -202,10 +202,20 @@ class AutoHandoff
 	// True if part is non-text/synthetic/ignored (runtime-injected)
 	protected isRuntime( p: { type: string; synthetic?: boolean; ignored?: boolean } ): boolean
 	{
-		const hit = [ ( v ) => v.type != "text", ( v ) => v.synthetic === true, ( v ) => v.ignored === true ]
-			.some( ( check ) => check( p ) ) ;
-		if ( hit ) log( LOG_LEVEL.DEBUG, `Runtime part: type=${p.type} synthetic=${p.synthetic} ignored=${p.ignored}` ) ;
-		return hit ;
+		const hit =
+		[
+			( v ) => v.type != "text",
+			( v ) => v.synthetic == true,
+			( v ) => v.ignored == true
+		];
+
+		if ( hit.some( ( check ) => check( p ) ) )
+		{
+			log( LOG_LEVEL.DEBUG, `Runtime part: type=${p.type} synthetic=${p.synthetic} ignored=${p.ignored}` ) ;
+			return true ;
+		}
+
+		return false ;
 	}
 
 	// Extract plain text from a message, stripping runtime parts and noise tags

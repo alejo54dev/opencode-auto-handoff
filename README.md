@@ -71,14 +71,15 @@ flowchart TD
     style M fill:#1a1a2e,stroke:#e94560,color:#fff
 ```
 
-| Trigger | When | Action |
-|---|---|---|---|
-| `on_start` | plugin load | reads latest `.handoff/<ts>.md` files, extracts messages via `parseFeedback()`, stores as `pendingHandoff` |
-| first `messages.transform` call | first turn | calls `injectHandoff()` — unshifts `<handoff-resume>` user message to `output.messages`, clears pending, flushes buffer |
-| each `messages.transform` call | every turn | deduplicates and captures user+assistant messages into buffer |
-| buffer >= `window_size` + `periodic: true` | buffer fills | writes `.handoff/<ts>.md`; always cycles buffer |
-| `dispose` hook | clean shutdown | reads latest message via API, writes handoff, removes exit listener |
-| `process.once("exit")` (process listener, not an OpenCode hook) | session ends | saves whatever was captured so far |
+## 🎯 Use cases
+
+**Pick up where you left off.** You close OpenCode mid-feature and walk away. Next morning the session opens with the prior conversation already in context — no recap, no scroll-back through a blank chat.
+
+**Long sessions that outlive the window.** A deep debugging marathon exhausts the context window. The thread is preserved between runs, so you resume from where the work stalled instead of from zero.
+
+**Same project, different machine.** You move from a laptop to a desktop. The handoff files live inside the repo, so the story follows the code, not the device.
+
+**Unexpected crash.** OpenCode or the terminal dies mid-thought. The last stretch of work is safe, so you reopen and continue without retracing steps.
 
 ## 🚀 Installation
 
