@@ -101,7 +101,7 @@ function timestamp() : string
 }
 
 // Load config from ~/.config/opencode/auto-handoff.jsonc, fall back to defaults
-function loadConfig(): typeof CONFIG
+function loadConfig() : typeof CONFIG
 {
 	let file : Record<string, unknown> = {} ;
 	try
@@ -148,7 +148,7 @@ function log( level : number, message : string ) : void
 
 class AutoHandoff
 {
-	private opts       : typeof CONFIG ;
+	private config     : typeof CONFIG ;
 	private projectDir : string ;
 	private handoffDir : string ;
 	private client     : PluginInput[ "client" ] ;
@@ -161,9 +161,9 @@ class AutoHandoff
 	private _boundOnExit : () => void ;
 
 	// Initialize plugin: bind exit listener, load handoffs if on_start
-	constructor( opts: typeof CONFIG, projectDir: string, client: PluginInput[ "client" ] )
+	constructor( config: typeof CONFIG, projectDir: string, client: PluginInput[ "client" ] )
 	{
-		this.opts       = opts ;
+		this.config     = config ;
 		this.projectDir = projectDir ;
 		this.handoffDir = join( projectDir, ".handoff" ) ;
 		this.client     = client ;
@@ -171,11 +171,11 @@ class AutoHandoff
 		this._boundOnExit = () => this.onExit() ;
 		process.once( "exit", this._boundOnExit ) ;
 
-		this.pendingHandoff = this.opts.on_start ? this.loadHandoffs() : null ;
+		this.pendingHandoff = this.config.on_start ? this.loadHandoffs() : null ;
 	}
 
 	// Clear the in-memory message buffer
-	protected flushMessages(): void
+	protected flushMessages() : void
 	{
 		this.messages.length = 0 ;
 	}
@@ -202,24 +202,16 @@ class AutoHandoff
 	// True if part is non-text/synthetic/ignored (runtime-injected)
 	protected isRuntime( p: { type: string; synthetic?: boolean; ignored?: boolean } ): boolean
 	{
-		const hit =
-		[
-			( v ) => v.type != "text",
-			( v ) => v.synthetic == true,
-			( v ) => v.ignored == true
-		];
+		const is = ( p.type != "text" || p.synthetic == true || p.ignored == true ) ;
 
-		if ( hit.some( ( check ) => check( p ) ) )
-		{
+		if ( is )
 			log( LOG_LEVEL.DEBUG, `Runtime part: type=${p.type} synthetic=${p.synthetic} ignored=${p.ignored}` ) ;
-			return true ;
-		}
 
-		return false ;
+		return is ;
 	}
 
 	// Extract plain text from a message, stripping runtime parts and noise tags
-	protected extractText( message: MessageLike ): string
+	protected extractText( message: MessageLike ) : string
 	{
 		const chunks: string[] = [] ;
 		const parts = message.parts ?? [] ;
@@ -272,7 +264,7 @@ class AutoHandoff
 	}
 
 	// Delete oldest handoff files beyond max_stored_files (FIFO)
-	protected rotateHandoffFiles( dir: string, maxStored: number ): void
+	protected rotateHandoffFiles( dir: string, maxStored: number ) : void
 	{
 		const files = this.listHandoffFiles( dir ) ;
 		const excess = files.length - maxStored ;
@@ -346,11 +338,11 @@ class AutoHandoff
 	// True when periodic and buffer reached window_size
 	protected shouldWritePeriodic(): boolean
 	{
-		return ( this.opts.periodic && ( this.messages.length >= this.opts.window_size ) ) ;
+		return ( this.config.periodic && ( this.messages.length >= this.config.window_size ) ) ;
 	}
 
 	// Write a .md handoff file (skip if empty), rotate, log
-	protected writeHandoff( reason: string, entries: MessageEntry[] = this.messages ): void
+	protected writeHandoff( reason: string, entries: MessageEntry[] = this.messages ) : void
 	{
 		if ( entries.length <= 0 )
 		{
@@ -361,12 +353,12 @@ class AutoHandoff
 		{
 			const ts = this.fileTimestamp() ;
 			const path = join( this.handoffDir, `${ts}.md` ) ;
-			const content = this.buildFileContent( ts, reason, entries, this.opts.window_size ) ;
+			const content = this.buildFileContent( ts, reason, entries, this.config.window_size ) ;
 
 			mkdirSync( this.handoffDir, { recursive: true } ) ;
 			writeFileSync( path, content ) ;
 
-			this.rotateHandoffFiles( this.handoffDir, this.opts.max_stored_files ) ;
+			this.rotateHandoffFiles( this.handoffDir, this.config.max_stored_files ) ;
 
 			log( LOG_LEVEL.INFO, `Handoff written: ${reason}: ${path}` ) ;
 		}
@@ -377,9 +369,9 @@ class AutoHandoff
 	}
 
 	// Process exit handler: write handoff if on_exit, then flush
-	protected onExit(): void
+	protected onExit() : void
 	{
-		if ( !this.opts.on_exit ) return ;
+		if ( !this.config.on_exit ) return ;
 
 		try
 		{
@@ -395,13 +387,13 @@ class AutoHandoff
 		try
 		{
 			const files = this.listHandoffFiles( this.handoffDir ) ;
-			const loadCount = Math.min( this.opts.max_load_files, files.length ) ;
+			const loadCount = Math.min( this.config.max_load_files, files.length ) ;
 
 			if ( !loadCount ) return null ;
 
 			const entries = files.slice( -loadCount )
 				.flatMap( f => this.parseFeedback( readFileSync( join( this.handoffDir, f ), "utf8" ) ) )
-				.slice( -this.opts.window_size ) ;
+				.slice( -this.config.window_size ) ;
 
 			log( LOG_LEVEL.INFO, `Handoff loaded: ${loadCount} file(s), ${entries.length} messages` ) ;
 			return entries ;
@@ -453,7 +445,7 @@ class AutoHandoff
 
 		log( LOG_LEVEL.INFO, `Handoff injected: ${this.pendingHandoff.length} messages, ${injection.length} bytes` ) ;
 
-		if ( this.opts.log_level === "debug" )
+		if ( this.config.log_level === "debug" )
 		{
 			writeFileSync( join( this.projectDir, "handoff-resume.txt" ), injection ) ;
 			log( LOG_LEVEL.DEBUG, `handoff-resume.txt written` ) ;
@@ -472,7 +464,7 @@ class AutoHandoff
 	{
 		try
 		{
-			if ( this.opts.on_start ) // on_start !!
+			if ( this.config.on_start ) // on_start !!
 				this.injectHandoff( output ) ;
 
 			if ( !output.messages?.length ) return ;
@@ -510,7 +502,7 @@ class AutoHandoff
 	// Hook: fetch last message, write handoff, remove exit listener
 	public async dispose(): Promise<void>
 	{
-		if ( this.opts.on_exit )
+		if ( this.config.on_exit )
 		{
 			try
 			{
