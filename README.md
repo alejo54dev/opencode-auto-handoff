@@ -130,10 +130,10 @@ tail -f ~/.config/opencode/auto-handoff.log
 ```log
 [2026-07-05T10:30:00] [INFO]: Config loaded
 [2026-07-05T10:30:01] [INFO]: Initialized | project: /home/user/myapp
-[2026-07-05T10:35:12] [INFO]: Handoff written: periodic (21 messages): .handoff/2026-07-05-1035.md
+[2026-07-05T10:35:12] [INFO]: Handoff written: periodic (21 messages): .handoff/2026-07-05-103512.md
 [2026-07-05T10:40:23] [INFO]: Handoff loaded: 3 file(s), 15 messages
 [2026-07-05T10:41:00] [INFO]: Handoff injected: 15 messages, 2875 bytes
-[2026-07-05T10:50:00] [INFO]: Handoff written: exit (10 messages): .handoff/2026-07-05-1050.md
+[2026-07-05T10:50:12] [INFO]: Handoff written: exit (10 messages): .handoff/2026-07-05-105012.md
 [2026-07-05T10:50:01] [INFO]: Disposed
 [2026-07-05T11:00:00] [DEBUG]: Handoff skipped (no messages): exit
 ```
@@ -143,7 +143,7 @@ tail -f ~/.config/opencode/auto-handoff.log
 Each handoff is a `.md` file in `.handoff/<timestamp>.md`:
 
 ```markdown
-# Handoff — 2026-07-03-1527
+# Handoff — 2026-07-03-152700
 
 ## Reason
 periodic (21 messages)
