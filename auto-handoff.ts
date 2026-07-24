@@ -417,8 +417,8 @@ class AutoHandoff
 
 			const msg = result?.data?.[ 0 ] ;
 			if ( !msg ) return null ;
-			const text = this.extractText( msg as MessageLike ) ;
 
+			const text = this.extractText( msg as MessageLike ) ;
 			if ( !text ) return null ;
 
 			return { role : msg.info.role, content : text } ;
