@@ -78,14 +78,14 @@ const FILTER_PATTERNS =
 
 interface MessageLike
 {
-	info: { role: "user" | "assistant"; id?: string; sessionID?: string } ;
-	parts: Array<{ type: string; text?: string; synthetic?: boolean; ignored?: boolean }> ;
+	info: { role : "user" | "assistant"; id? : string; sessionID? : string } ;
+	parts: Array<{ type : string; text? : string; synthetic? : boolean; ignored? : boolean }> ;
 }
 
 interface MessageEntry
 {
 	role: "user" | "assistant" ;
-	content: string ;
+	content : string ;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -161,7 +161,7 @@ class AutoHandoff
 	private _boundOnExit : () => void ;
 
 	// Initialize plugin: bind exit listener, load handoffs if on_start
-	constructor( config: typeof CONFIG, projectDir: string, client: PluginInput[ "client" ] )
+	constructor( config : typeof CONFIG, projectDir : string, client : PluginInput[ "client" ] )
 	{
 		this.config     = config ;
 		this.projectDir = projectDir ;
@@ -181,26 +181,26 @@ class AutoHandoff
 	}
 
 	// True if last buffered message matches role+content (dedup guard)
-	protected isDedup( role: string, content: string ): boolean
+	protected isDedup( role : string, content : string ) : boolean
 	{
 		const last = this.messages[ this.messages.length - 1 ] ;
-		return ( !!last && last.role === role && last.content === content ) ;
+		return ( !! last && last.role === role && last.content === content ) ;
 	}
 
 	// True if message is the injected <handoff-resume> (skip re-capture)
-	protected isHandoffResume( msg: MessageLike ): boolean
+	protected isHandoffResume( msg : MessageLike ) : boolean
 	{
 		return ( msg.info.role === "user" && msg.info.id === "handoff-resume" ) ;
 	}
 
 	// True if message id already tracked in seenMessageIds
-	protected isAlreadySeen( msg: MessageLike ): boolean
+	protected isAlreadySeen( msg : MessageLike ) : boolean
 	{
-		return ( !!msg.info.id && this.seenMessageIds.has( msg.info.id ) ) ;
+		return ( !! msg.info.id && this.seenMessageIds.has( msg.info.id ) ) ;
 	}
 
 	// True if part is non-text/synthetic/ignored (runtime-injected)
-	protected isRuntime( p: { type: string; synthetic?: boolean; ignored?: boolean } ): boolean
+	protected isRuntime( p : { type : string; synthetic? : boolean; ignored? : boolean } ) : boolean
 	{
 		const is = ( p.type != "text" || p.synthetic == true || p.ignored == true ) ;
 
@@ -211,9 +211,9 @@ class AutoHandoff
 	}
 
 	// Extract plain text from a message, stripping runtime parts and noise tags
-	protected extractText( message: MessageLike ) : string
+	protected extractText( message : MessageLike ) : string
 	{
-		const chunks: string[] = [] ;
+		const chunks : string[] = [] ;
 		const parts = message.parts ?? [] ;
 
 		for ( const part of parts )
@@ -231,11 +231,11 @@ class AutoHandoff
 	}
 
 	// Parse a .md handoff file into MessageEntry[] (role + content lines)
-	protected parseFeedback( content: string ): MessageEntry[]
+	protected parseFeedback( content : string ) : MessageEntry[]
 	{
 		const lines = content.split( "\n" ) ;
-		const entries: MessageEntry[] = [] ;
-		let current: MessageEntry | null = null ;
+		const entries : MessageEntry[] = [] ;
+		let current : MessageEntry | null = null ;
 
 		for ( const line of lines )
 		{
@@ -243,7 +243,7 @@ class AutoHandoff
 
 			if ( match )
 			{
-				current = { role: match[ 1 ], content: match[ 2 ] } ;
+				current = { role : match[ 1 ], content : match[ 2 ] } ;
 				entries.push( current ) ;
 			}
 			else if ( current )
@@ -256,7 +256,7 @@ class AutoHandoff
 	}
 
 	// List .md handoff files in dir, sorted
-	protected listHandoffFiles( dir: string ): string[]
+	protected listHandoffFiles( dir : string ) : string[]
 	{
 		return existsSync( dir )
 			? readdirSync( dir ).filter( f => f.endsWith( ".md" ) ).sort()
@@ -264,7 +264,7 @@ class AutoHandoff
 	}
 
 	// Delete oldest handoff files beyond max_stored_files (FIFO)
-	protected rotateHandoffFiles( dir: string, maxStored: number ) : void
+	protected rotateHandoffFiles( dir : string, maxStored : number ) : void
 	{
 		const files = this.listHandoffFiles( dir ) ;
 		const excess = files.length - maxStored ;
@@ -278,13 +278,13 @@ class AutoHandoff
 	}
 
 	// True if role is user or assistant
-	protected isValidRole( role: string ): boolean
+	protected isValidRole( role : string ) : boolean
 	{
 		return [ "user", "assistant" ].includes( role ) ;
 	}
 
 	// Local timestamp as YYYY-MM-DD-HHMMSS for filenames
-	protected fileTimestamp(): string
+	protected fileTimestamp() : string
 	{
 		const utc    = new Date() ;
 		const offset = utc.getTimezoneOffset() ;
@@ -294,7 +294,7 @@ class AutoHandoff
 	}
 
 	// Build the <handoff-resume> XML injected into context
-	protected buildInjection( entries: MessageEntry[] ): string
+	protected buildInjection( entries : MessageEntry[] ) : string
 	{
 		const block = entries
 			.map( e => `- [${e.role}] ${e.content}` )
@@ -321,9 +321,9 @@ class AutoHandoff
 	}
 
 	// Build .md handoff file content from recent entries
-	protected buildFileContent( ts: string, reason: string, entries: MessageEntry[], maxEntries: number ): string
+	protected buildFileContent( ts : string, reason : string, entries : MessageEntry[], maxEntries : number ) : string
 	{
-		const recent = entries.slice( -maxEntries );
+		const recent = entries.slice( -maxEntries ) ;
 		const block = recent.length
 			? recent.map( e => `- [${e.role}] ${e.content}` ).join( "\n" )
 			: "(no messages captured)" ;
@@ -336,13 +336,13 @@ class AutoHandoff
 	}
 
 	// True when periodic and buffer reached window_size
-	protected shouldWritePeriodic(): boolean
+	protected shouldWritePeriodic() : boolean
 	{
 		return ( this.config.periodic && ( this.messages.length >= this.config.window_size ) ) ;
 	}
 
 	// Write a .md handoff file (skip if empty), rotate, log
-	protected writeHandoff( reason: string, entries: MessageEntry[] = this.messages ) : void
+	protected writeHandoff( reason : string, entries : MessageEntry[] = this.messages ) : void
 	{
 		if ( entries.length <= 0 )
 		{
@@ -355,7 +355,7 @@ class AutoHandoff
 			const path = join( this.handoffDir, `${ts}.md` ) ;
 			const content = this.buildFileContent( ts, reason, entries, this.config.window_size ) ;
 
-			mkdirSync( this.handoffDir, { recursive: true } ) ;
+			mkdirSync( this.handoffDir, { recursive : true } ) ;
 			writeFileSync( path, content ) ;
 
 			this.rotateHandoffFiles( this.handoffDir, this.config.max_stored_files ) ;
@@ -371,7 +371,7 @@ class AutoHandoff
 	// Process exit handler: write handoff if on_exit, then flush
 	protected onExit() : void
 	{
-		if ( !this.config.on_exit ) return ;
+		if ( ! this.config.on_exit ) return ;
 
 		try
 		{
@@ -382,14 +382,14 @@ class AutoHandoff
 	}
 
 	// Load recent handoff files into pendingHandoff (on_start)
-	protected loadHandoffs(): MessageEntry[] | null
+	protected loadHandoffs() : MessageEntry[] | null
 	{
 		try
 		{
 			const files = this.listHandoffFiles( this.handoffDir ) ;
 			const loadCount = Math.min( this.config.max_load_files, files.length ) ;
 
-			if ( !loadCount ) return null ;
+			if ( ! loadCount ) return null ;
 
 			const entries = files.slice( -loadCount )
 				.flatMap( f => this.parseFeedback( readFileSync( join( this.handoffDir, f ), "utf8" ) ) )
@@ -406,7 +406,7 @@ class AutoHandoff
 	}
 
 	// Fetch single latest message via SDK for dispose
-	protected async fetchLastMessage( sessionID: string ): Promise<MessageEntry | null>
+	protected async fetchLastMessage( sessionID : string ) : Promise<MessageEntry | null>
 	{
 		try
 		{
@@ -416,10 +416,10 @@ class AutoHandoff
 			} ) ;
 
 			const msg = result?.data?.[ 0 ] ;
-			if ( !msg ) return null ;
+			if ( ! msg ) return null ;
 
 			const text = this.extractText( msg as MessageLike ) ;
-			if ( !text ) return null ;
+			if ( ! text ) return null ;
 
 			return { role : msg.info.role, content : text } ;
 		}
@@ -431,17 +431,17 @@ class AutoHandoff
 	}
 
 	// Inject pending handoff as synthetic <handoff-resume> user message
-	protected injectHandoff( output: { messages?: MessageLike[] } ): boolean
+	protected injectHandoff( output : { messages? : MessageLike[] } ) : boolean
 	{
 		if ( this.pendingHandoff === null ) return false ;
 
 		const injection = this.buildInjection( this.pendingHandoff ) ;
 
 		output.messages.unshift( {
-			info: { role: "user", id: "handoff-resume" },
+			info : { role : "user", id : "handoff-resume" },
 			// synthetic: system-injected content; capture skips it via isRuntime()
-			parts: [ { type: "text", text: injection, synthetic: true } ],
-		} as MessageLike );
+			parts : [ { type : "text", text : injection, synthetic : true } ],
+		} as MessageLike ) ;
 
 		log( LOG_LEVEL.INFO, `Handoff injected: ${this.pendingHandoff.length} messages, ${injection.length} bytes` ) ;
 
@@ -460,29 +460,29 @@ class AutoHandoff
 	// ── Public hooks ──────────────────────────────────────────────────────
 
 	// Store captured messages into the handoff buffer; flush/rotate when periodic window reached
-	public async transform( output: { messages?: MessageLike[] } ): Promise<void>
+	public async transform( output : { messages? : MessageLike[] } ) : Promise<void>
 	{
 		try
 		{
 			if ( this.config.on_start ) // on_start !!
 				this.injectHandoff( output ) ;
 
-			if ( !output.messages?.length ) return ;
+			if ( ! output.messages?.length ) return ;
 
 			for ( const msg of output.messages )
 			{
 				if ( this.isHandoffResume( msg ) ) continue ;
 				if ( this.isAlreadySeen( msg ) ) continue ;
-				if ( !this.isValidRole( msg.info.role ) ) continue ;
+				if ( ! this.isValidRole( msg.info.role ) ) continue ;
 
 				if ( msg.info?.sessionID ) this.currentSessionID = msg.info.sessionID ;
 
 				const text = this.extractText( msg as MessageLike ) ;
-				if ( !text ) continue ;
+				if ( ! text ) continue ;
 
 				if ( this.isDedup( msg.info.role, text ) ) continue ;
 
-				this.messages.push( { role: msg.info.role, content: text } ) ;
+				this.messages.push( { role : msg.info.role, content : text } ) ;
 
 				if ( msg.info.id ) this.seenMessageIds.add( msg.info.id ) ;
 			}
@@ -500,7 +500,7 @@ class AutoHandoff
 	}
 
 	// Hook: fetch last message, write handoff, remove exit listener
-	public async dispose(): Promise<void>
+	public async dispose() : Promise<void>
 	{
 		if ( this.config.on_exit )
 		{
@@ -509,7 +509,7 @@ class AutoHandoff
 				if ( this.currentSessionID )
 				{
 					const last = await this.fetchLastMessage( this.currentSessionID ) ;
-					if ( last && !this.isDedup( last.role, last.content ) ) this.messages.push( last ) ;
+					if ( last && ! this.isDedup( last.role, last.content ) ) this.messages.push( last ) ;
 				}
 
 				if ( this.messages.length )
@@ -530,11 +530,11 @@ class AutoHandoff
 // ─── Plugin ────────────────────────────────────────────────────────────────
 
 // Plugin factory: load config, build AutoHandoff, register hooks
-export default ( async ( ctx: PluginInput ) =>
+export default ( async ( ctx : PluginInput ) =>
 {
 	const opts = loadConfig() ;
 
-	if ( !opts.enabled )
+	if ( ! opts.enabled )
 	{
 		log( LOG_LEVEL.INFO, "Disabled" ) ;
 		return {} ;
@@ -545,11 +545,11 @@ export default ( async ( ctx: PluginInput ) =>
 	log( LOG_LEVEL.INFO, `Initialized | project: ${ctx.directory}` ) ;
 
 	return {
-		"experimental.chat.messages.transform": async ( input: unknown, output: { messages?: MessageLike[] } ) =>
+		"experimental.chat.messages.transform" : async ( input : unknown, output : { messages? : MessageLike[] } ) =>
 		{
 			ah.transform( output ) ;
 		},
-		dispose: () => ah.dispose(),
+		dispose : () => ah.dispose(),
 	};
 } ) satisfies Plugin ;
 
