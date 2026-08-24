@@ -166,7 +166,7 @@ Less is more. :)
 ## 👤 Authors
 
 - Alejandro Carraretto
-- MiniMax-M3
+- MiniMax-M3 — assistant model during development
 
 ## 📄 License
 
