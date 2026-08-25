@@ -1,6 +1,6 @@
 # Auto Handoff — (your session is safe)
 
-![Version](https://img.shields.io/github/v/release/alejo54dev/opencode-auto-handoff)
+![Version](https://img.shields.io/badge/version-1.1.18-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![OpenCode](https://img.shields.io/badge/OpenCode-plugin-purple)
 
