@@ -27,6 +27,7 @@
 *	@author Alejandro Carraretto
 *	@assistant MiniMax-M3
 *	@license MIT
+ *	@compatibility OpenCode v1
 */
 
 import type { Plugin, PluginInput } from "@opencode-ai/plugin" ;
