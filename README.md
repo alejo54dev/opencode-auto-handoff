@@ -10,7 +10,7 @@
 
 > Close OpenCode without losing the thread.
 
-- **Auto save** — circular buffer (`window_size`) writes .md on each cycle if `periodic: true`. Plain text, readable, versionable.
+- **Auto save** — circular buffer (`window_size`) writes a `.md` file each cycle if `periodic: true`. Plain text, readable, versionable.
 
 - **Auto resurrection** — close saves, open reads. Everything is back where you left it.
 
@@ -28,7 +28,7 @@ The plugin uses a single hook — `experimental.chat.messages.transform` — for
 
 1. **Injection (once, on first turn):** if `on_start` is true and handoff files exist, `injectHandoff()` unshifts a `<handoff-resume>` user message into `output.messages`. The buffer is flushed after injection.
 2. **Capture (every turn):** iterates `output.messages`, deduplicates via `seenMessageIds` + `isDedup`, extracts clean text, pushes to circular buffer.
-3. **Periodic write (if `periodic: true`):** when buffer reaches `window_size`, writes `.handoff/<ts>.md`, then flushes.
+3. **Periodic write (if `periodic: true`):** when buffer reaches `window_size`, writes a `.handoff/<ts>.md` file, then flushes.
 
 On startup, `.handoff/*.md` files are parsed via `parseFeedback()` into `pendingHandoff`. On exit/dispose the buffer is saved and rotated (FIFO, `max_stored_files`).
 
@@ -170,4 +170,4 @@ Less is more. :)
 
 ## 📄 License
 
-MIT — version 1.1.17
+MIT — version 1.1.18
