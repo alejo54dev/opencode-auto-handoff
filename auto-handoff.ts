@@ -26,8 +26,8 @@
 *	@version 1.1.18
 *	@author Alejandro Carraretto
 *	@assistant MiniMax-M3
-*	@license MIT
- *	@compatibility OpenCode v1
+*	@license Apache-2.0
+*	@compatibility OpenCode v1
 */
 
 import type { Plugin, PluginInput } from "@opencode-ai/plugin" ;
