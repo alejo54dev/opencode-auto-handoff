@@ -100,7 +100,7 @@ Copy `auto-handoff.jsonc` (included in this repo) to `~/.config/opencode/` and e
 	"on_start": true,          // load recent handoffs on startup
 	"window_size": 20,         // max buffer size; cycles when full, writes if periodic
 	"periodic": true,          // write .md file on every buffer cycle
-	"max_stored_files": 10,    // max .handoff/*.md files to keep (rotation)
+	"max_stored_files": 50,    // max .handoff/*.md files to keep (rotation)
 	"max_load_files": 5,       // max recent handoff files to load on startup
 	"log_level": "info",       // silent, error, info, debug
 }
@@ -129,13 +129,12 @@ tail -f ~/.config/opencode/auto-handoff.log
 
 ```log
 [2026-07-05T10:30:00] [INFO]: Config loaded
+[2026-07-05T10:30:01] [INFO]: Handoff loaded: 5 file(s), 20 messages
 [2026-07-05T10:30:01] [INFO]: Initialized | project: /home/user/myapp
-[2026-07-05T10:35:12] [INFO]: Handoff written: periodic (21 messages): .handoff/2026-07-05-103512.md
-[2026-07-05T10:40:23] [INFO]: Handoff loaded: 3 file(s), 15 messages
-[2026-07-05T10:41:00] [INFO]: Handoff injected: 15 messages, 2875 bytes
-[2026-07-05T10:50:12] [INFO]: Handoff written: exit (10 messages): .handoff/2026-07-05-105012.md
-[2026-07-05T10:50:01] [INFO]: Disposed
-[2026-07-05T11:00:00] [DEBUG]: Handoff skipped (no messages): exit
+[2026-07-05T10:35:12] [INFO]: Handoff written: periodic (20 messages): /home/user/myapp/.handoff/2026-07-05-103512.md
+[2026-07-05T10:40:23] [INFO]: Handoff injected: 20 messages, 6128 bytes
+[2026-07-05T10:50:12] [INFO]: Handoff written: dispose (3 messages): /home/user/myapp/.handoff/2026-07-05-105012.md
+[2026-07-05T10:50:12] [INFO]: Disposed
 ```
 
 ## 📝 Output format

@@ -51,7 +51,7 @@ const LOG_LEVEL =
 	DEBUG  : 3,
 } as const ;
 
-const CONFIG =
+const CONFIG : Config =
 {
 	enabled: true,           // master switch
 	on_exit: true,           // write handoff on dispose/exit
@@ -60,7 +60,7 @@ const CONFIG =
 	periodic: true,          // write .md file on every buffer cycle
 	max_stored_files: 10,    // max .handoff/*.md files to keep (rotation)
 	max_load_files: 5,       // max recent handoff files to load on startup
-	log_level: "info" as "silent" | "error" | "info" | "debug",
+	log_level: "info",
 };
 
 // Optional/additional chat content filter. (empty by default)
@@ -76,6 +76,18 @@ const FILTER_PATTERNS =
 ];
 
 // ─── Interfaces ────────────────────────────────────────────────────────────
+
+interface Config
+{
+	enabled          : boolean ;
+	on_exit          : boolean ;
+	on_start         : boolean ;
+	window_size      : number ;
+	periodic         : boolean ;
+	max_stored_files : number ;
+	max_load_files   : number ;
+	log_level        : "silent" | "error" | "info" | "debug" ;
+}
 
 interface MessageLike
 {
@@ -102,7 +114,7 @@ function timestamp() : string
 }
 
 // Load config from ~/.config/opencode/auto-handoff.jsonc, fall back to defaults
-function loadConfig() : typeof CONFIG
+function loadConfig() : Config
 {
 	let file : Record<string, unknown> = {} ;
 	try
@@ -149,7 +161,7 @@ function log( level : number, message : string ) : void
 
 class AutoHandoff
 {
-	private config     : typeof CONFIG ;
+	private config     : Config ;
 	private projectDir : string ;
 	private handoffDir : string ;
 	private client     : PluginInput[ "client" ] ;
@@ -162,7 +174,7 @@ class AutoHandoff
 	private _boundOnExit : () => void ;
 
 	// Initialize plugin: bind exit listener, load handoffs if on_start
-	constructor( config : typeof CONFIG, projectDir : string, client : PluginInput[ "client" ] )
+	constructor( config : Config, projectDir : string, client : PluginInput[ "client" ] )
 	{
 		this.config     = config ;
 		this.projectDir = projectDir ;
