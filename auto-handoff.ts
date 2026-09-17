@@ -23,7 +23,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.1.18
+*	@version 1.1.21
 *	@author Alejandro Carraretto
 *	@assistant MiniMax-M3
 *	@license AGPL-3.0
@@ -53,14 +53,14 @@ const LOG_LEVEL =
 
 const CONFIG : Config =
 {
-	enabled: true,           // master switch
-	on_exit: true,           // write handoff on dispose/exit
-	on_start: true,          // load recent handoffs on startup
-	window_size: 20,         // max buffer size; cycles when full, writes if periodic
-	periodic: true,          // write .md file on every buffer cycle
-	max_stored_files: 10,    // max .handoff/*.md files to keep (rotation)
-	max_load_files: 5,       // max recent handoff files to load on startup
-	log_level: "info",
+	enabled          : true, // master switch
+	on_exit          : true, // write handoff on dispose/exit
+	on_start         : true, // load recent handoffs on startup
+	window_size      : 20,   // max buffer size; cycles when full, writes if periodic
+	periodic         : true, // write .md file on every buffer cycle
+	max_stored_files : 10,   // max .handoff/*.md files to keep (rotation)
+	max_load_files   : 5,    // max recent handoff files to load on startup
+	log_level        : "info",
 };
 
 // Optional/additional chat content filter. (empty by default)
@@ -91,7 +91,7 @@ interface Config
 
 interface MessageLike
 {
-	info: { role : "user" | "assistant"; id? : string; sessionID? : string } ;
+	info: { role : "user" | "assistant"; id? : string; sessionID? : string; summary? : boolean } ;
 	parts: Array<{ type : string; text? : string; synthetic? : boolean; ignored? : boolean }> ;
 }
 
@@ -101,7 +101,7 @@ interface MessageEntry
 	content : string ;
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Global Helpers ──────────────────────────────────────────────────────────
 
 // Current local datetime as ISO-like string: "2026-07-06T20:30:26"
 function timestamp() : string
@@ -116,27 +116,26 @@ function timestamp() : string
 // Load config from ~/.config/opencode/auto-handoff.jsonc, fall back to defaults
 function loadConfig() : Config
 {
-	let file : Record<string, unknown> = {} ;
+	let file : Partial<Config> = {} ;
+	let loaded = false ;
+
 	try
 	{
-		file = Bun.JSONC.parse( readFileSync( CONFIG_FILE, "utf8" ) ) ;
+		file = Bun.JSONC.parse( readFileSync( CONFIG_FILE, "utf8" ) ) as Partial<Config> ;
+		loaded = true ;
 	}
 	catch
 	{
 		log( LOG_LEVEL.ERROR, `Config not found or parse error at ${ CONFIG_FILE }` ) ;
 	}
 
-	// Validate between file values and defaults values.
-	CONFIG.enabled           = file.enabled                       ?? CONFIG.enabled ;
-	CONFIG.on_exit           = file.on_exit                       ?? CONFIG.on_exit ;
-	CONFIG.on_start          = file.on_start                      ?? CONFIG.on_start ;
-	CONFIG.window_size       = Math.max( 1, file.window_size      ?? CONFIG.window_size ) ;
-	CONFIG.periodic          = file.periodic                      ?? CONFIG.periodic ;
-	CONFIG.max_stored_files  = Math.max( 1, file.max_stored_files ?? CONFIG.max_stored_files ) ;
-	CONFIG.max_load_files    = Math.max( 1, file.max_load_files   ?? CONFIG.max_load_files ) ;
-	CONFIG.log_level         = file.log_level                     ?? CONFIG.log_level ;
+	Object.assign( CONFIG, file ) ;
 
-	log( LOG_LEVEL.INFO, "Config loaded" ) ;
+	CONFIG.window_size      = Math.max( 1, CONFIG.window_size ) ;
+	CONFIG.max_stored_files = Math.max( 1, CONFIG.max_stored_files ) ;
+	CONFIG.max_load_files   = Math.max( 1, CONFIG.max_load_files ) ;
+
+	log( LOG_LEVEL.INFO, loaded ? "Config loaded" : "Config loaded (defaults)" ) ;
 
 	return CONFIG ;
 }
@@ -212,13 +211,14 @@ class AutoHandoff
 		return ( !! msg.info.id && this.seenMessageIds.has( msg.info.id ) ) ;
 	}
 
-	// True if part is non-text/synthetic/ignored (runtime-injected)
-	protected isRuntime( p : { type : string; synthetic? : boolean; ignored? : boolean } ) : boolean
+	// True if part is runtime-injected (non-text, synthetic, ignored) or belongs
+	// to a compaction checkpoint (summary message) — state, not conversation
+	protected isRuntime( p : { type : string; synthetic? : boolean; ignored? : boolean }, info : { summary? : boolean } ) : boolean
 	{
-		const is = ( p.type != "text" || p.synthetic == true || p.ignored == true ) ;
+		const is = ( info.summary === true || p.type != "text" || p.synthetic == true || p.ignored == true ) ;
 
 		if ( is )
-			log( LOG_LEVEL.DEBUG, `Runtime part: type=${p.type} synthetic=${p.synthetic} ignored=${p.ignored}` ) ;
+			log( LOG_LEVEL.DEBUG, `Runtime part: type=${p.type} synthetic=${p.synthetic} ignored=${p.ignored} summary=${info.summary}` ) ;
 
 		return is ;
 	}
@@ -231,7 +231,7 @@ class AutoHandoff
 
 		for ( const part of parts )
 		{
-			if ( this.isRuntime( part ) ) continue ;
+			if ( this.isRuntime( part, message.info ) ) continue ;
 			if ( part.text ) chunks.push( part.text ) ;
 		}
 
