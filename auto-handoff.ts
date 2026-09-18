@@ -23,7 +23,7 @@
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.1.21
+*	@version 1.1.22
 *	@author Alejandro Carraretto
 *	@assistant MiniMax-M3
 *	@license AGPL-3.0
@@ -58,7 +58,7 @@ const CONFIG : Config =
 	on_start         : true, // load recent handoffs on startup
 	window_size      : 20,   // max buffer size; cycles when full, writes if periodic
 	periodic         : true, // write .md file on every buffer cycle
-	max_stored_files : 10,   // max .handoff/*.md files to keep (rotation)
+	max_stored_files : 50,   // max .handoff/*.md files to keep (rotation)
 	max_load_files   : 5,    // max recent handoff files to load on startup
 	log_level        : "info",
 };

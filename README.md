@@ -1,6 +1,6 @@
 # Auto Handoff — (your session is safe)
 
-![Version](https://img.shields.io/badge/version-1.1.21-blue)
+![Version](https://img.shields.io/badge/version-1.1.22-blue)
 ![License](https://img.shields.io/badge/license-AGPL%203.0-blue)
 ![OpenCode v1](https://img.shields.io/badge/OpenCode-v1-purple)
 
@@ -10,7 +10,7 @@
 
 > Close OpenCode without losing the thread.
 
-- **Auto save** — circular buffer (`window_size`) writes a `.md` file each cycle if `periodic: true`. Plain text, readable, versionable.
+- **Auto save** — bounded buffer (`window_size`) writes a `.md` file each time it fills (if `periodic: true`), then starts a fresh cycle. Plain text, readable, versionable.
 
 - **Auto resurrection** — close saves, open reads. Everything is back where you left it.
 
@@ -113,7 +113,7 @@ Copy `auto-handoff.jsonc` (included in this repo) to `~/.config/opencode/` and e
 | `on_start` | `true` | load recent handoffs on startup |
 | `window_size` | `20` | max buffer size; cycles when full (min 1). If `periodic: true`, writes `.md` on each cycle |
 | `periodic` | `true` | write `.md` file on every buffer cycle |
-| `max_stored_files` | `10` | max `.handoff/*.md` files to keep (rotation, min 1) |
+| `max_stored_files` | `50` | max `.handoff/*.md` files to keep (rotation, min 1) |
 | `max_load_files` | `5` | max recent handoff files to load on startup (min 1) |
 | `log_level` | `"info"` | log level (`silent`, `error`, `info`, `debug`) |
 
@@ -121,7 +121,7 @@ If the file doesn't exist, defaults are used.
 
 ## 🪵 Logs
 
-`~/.config/opencode/auto-handoff.log` (append-only). Format: `[TIMESTAMP] [LEVEL] message`.
+`~/.config/opencode/auto-handoff.log` (append-only). Format: `[TIMESTAMP] [LEVEL]: message`.
 
 ```bash
 tail -f ~/.config/opencode/auto-handoff.log
@@ -169,4 +169,4 @@ Less is more. :)
 
 ## 📄 License
 
-AGPL-3.0 — version 1.1.21
+AGPL-3.0 — version 1.1.22
