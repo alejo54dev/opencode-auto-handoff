@@ -2,7 +2,7 @@
 *	auto-handoff.ts
 *
 *	OpenCode plugin — periodic + exit handoff writer, startup handoff reader.
-*	Circular buffer (window_size) writes .handoff/<timestamp>.md on cycle (if periodic) and on session exit.
+*	Circular buffer (window_size) writes .handoff/<timestamp>.md on cycle (if save_periodic) and on session exit.
 *	Loads handoffs on startup. No keywords, no database.
 *
 *	Install: cp auto-handoff.ts ~/.config/opencode/plugins/auto-handoff.ts
@@ -13,17 +13,17 @@
 *	@example ~/.config/opencode/auto-handoff.jsonc
 *	{
 *		"enabled": true,           // master switch
-*		"on_exit": true,           // write handoff on dispose/exit
-*		"on_start": true,          // load recent handoffs on startup
-*		"window_size": 20,         // max buffer size; cycles when full, writes if periodic
-*		"periodic": true,          // write .md file on every buffer cycle
-*		"max_stored_files": 50,    // max .handoff/*.md files to keep (rotation)
+*		"window_size": 20,         // max buffer size; cycles when full, save if periodic
+*		"load_on_start": true,     // load recent handoffs on startup
 *		"max_load_files": 5,       // max recent handoff files to load on startup
+*		"save_periodic": true,     // write handoff file on every buffer cycle
+*		"save_on_exit": true,      // write handoff file on dispose/exit
+*		"max_stored_files": 50,    // max .handoff/*.md files to keep (rotation)
 *		"log_level": "info",       // silent, error, info, debug
 *	}
 *
 *	@name auto-handoff plugin.
-*	@version 1.1.22
+*	@version 1.1.23
 *	@author Alejandro Carraretto
 *	@assistant MiniMax-M3
 *	@license AGPL-3.0
@@ -54,12 +54,12 @@ const LOG_LEVEL =
 const CONFIG : Config =
 {
 	enabled          : true, // master switch
-	on_exit          : true, // write handoff on dispose/exit
-	on_start         : true, // load recent handoffs on startup
-	window_size      : 20,   // max buffer size; cycles when full, writes if periodic
-	periodic         : true, // write .md file on every buffer cycle
-	max_stored_files : 50,   // max .handoff/*.md files to keep (rotation)
+	window_size      : 20,   // max buffer size; cycles when full, save if periodic
+	load_on_start    : true, // load recent handoffs on startup
 	max_load_files   : 5,    // max recent handoff files to load on startup
+	save_periodic    : true, // write handoff file on every buffer cycle
+	save_on_exit     : true, // write handoff file on dispose/exit
+	max_stored_files : 50,   // max .handoff/*.md files to keep (rotation)
 	log_level        : "info",
 };
 
@@ -80,12 +80,12 @@ const FILTER_PATTERNS =
 interface Config
 {
 	enabled          : boolean ;
-	on_exit          : boolean ;
-	on_start         : boolean ;
 	window_size      : number ;
-	periodic         : boolean ;
-	max_stored_files : number ;
+	load_on_start    : boolean ;
 	max_load_files   : number ;
+	save_periodic    : boolean ;
+	save_on_exit     : boolean ;
+	max_stored_files : number ;
 	log_level        : "silent" | "error" | "info" | "debug" ;
 }
 
@@ -172,7 +172,7 @@ class AutoHandoff
 
 	private _boundOnExit : () => void ;
 
-	// Initialize plugin: bind exit listener, load handoffs if on_start
+	// Initialize plugin: bind exit listener, load handoffs if load_on_start
 	constructor( config : Config, projectDir : string, client : PluginInput[ "client" ] )
 	{
 		this.config     = config ;
@@ -183,7 +183,7 @@ class AutoHandoff
 		this._boundOnExit = () => this.onExit() ;
 		process.once( "exit", this._boundOnExit ) ;
 
-		this.pendingHandoff = this.config.on_start ? this.loadHandoffs() : null ;
+		this.pendingHandoff = this.config.load_on_start ? this.loadHandoffs() : null ;
 	}
 
 	// Clear the in-memory message buffer
@@ -348,10 +348,10 @@ class AutoHandoff
 		);
 	}
 
-	// True when periodic and buffer reached window_size
+	// True when save_periodic and buffer reached window_size
 	protected shouldWritePeriodic() : boolean
 	{
-		return ( this.config.periodic && ( this.messages.length >= this.config.window_size ) ) ;
+		return ( this.config.save_periodic && ( this.messages.length >= this.config.window_size ) ) ;
 	}
 
 	// Write a .md handoff file (skip if empty), rotate, log
@@ -381,10 +381,10 @@ class AutoHandoff
 		}
 	}
 
-	// Process exit handler: write handoff if on_exit, then flush
+	// Process exit handler: write handoff if save_on_exit, then flush
 	protected onExit() : void
 	{
-		if ( ! this.config.on_exit ) return ;
+		if ( ! this.config.save_on_exit ) return ;
 
 		try
 		{
@@ -394,7 +394,7 @@ class AutoHandoff
 		catch { /* non-fatal */ }
 	}
 
-	// Load recent handoff files into pendingHandoff (on_start)
+	// Load recent handoff files into pendingHandoff (load_on_start)
 	protected loadHandoffs() : MessageEntry[] | null
 	{
 		try
@@ -413,7 +413,7 @@ class AutoHandoff
 		}
 		catch ( err )
 		{
-			log( LOG_LEVEL.ERROR, `on_start load failed: ${( err as Error ).message}` ) ;
+			log( LOG_LEVEL.ERROR, `load_on_start load failed: ${( err as Error ).message}` ) ;
 			return null ;
 		}
 	}
@@ -472,12 +472,12 @@ class AutoHandoff
 
 	// ── Public hooks ──────────────────────────────────────────────────────
 
-	// Store captured messages into the handoff buffer; flush/rotate when periodic window reached
+	// Store captured messages into the handoff buffer; flush/rotate when save_periodic window reached
 	public async transform( output : { messages? : MessageLike[] } ) : Promise<void>
 	{
 		try
 		{
-			if ( this.config.on_start ) // on_start !!
+			if ( this.config.load_on_start ) // load_on_start !!
 				this.injectHandoff( output ) ;
 
 			if ( ! output.messages?.length ) return ;
@@ -515,7 +515,7 @@ class AutoHandoff
 	// Hook: fetch last message, write handoff, remove exit listener
 	public async dispose() : Promise<void>
 	{
-		if ( this.config.on_exit )
+		if ( this.config.save_on_exit )
 		{
 			try
 			{

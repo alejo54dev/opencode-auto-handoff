@@ -1,6 +1,6 @@
 # Auto Handoff — (your session is safe)
 
-![Version](https://img.shields.io/badge/version-1.1.22-blue)
+![Version](https://img.shields.io/badge/version-1.1.23-blue)
 ![License](https://img.shields.io/badge/license-AGPL%203.0-blue)
 ![OpenCode v1](https://img.shields.io/badge/OpenCode-v1-purple)
 
@@ -10,7 +10,7 @@
 
 > Close OpenCode without losing the thread.
 
-- **Auto save** — bounded buffer (`window_size`) writes a `.md` file each time it fills (if `periodic: true`), then starts a fresh cycle. Plain text, readable, versionable.
+- **Auto save** — bounded buffer (`window_size`) writes a `.md` file each time it fills (if `save_periodic: true`), then starts a fresh cycle. Plain text, readable, versionable.
 
 - **Auto resurrection** — close saves, open reads. Everything is back where you left it.
 
@@ -26,16 +26,16 @@ On load, it recovers only the conversation — no headers, no metadata, no junk.
 
 The plugin uses a single hook — `experimental.chat.messages.transform` — for both handoff injection and message capture:
 
-1. **Injection (once, on first turn):** if `on_start` is true and handoff files exist, `injectHandoff()` unshifts a `<handoff-resume>` user message into `output.messages`. The buffer is flushed after injection.
+1. **Injection (once, on first turn):** if `load_on_start` is true and handoff files exist, `injectHandoff()` unshifts a `<handoff-resume>` user message into `output.messages`. The buffer is flushed after injection.
 2. **Capture (every turn):** iterates `output.messages`, deduplicates via `seenMessageIds` + `isDedup`, extracts clean text, pushes to circular buffer.
-3. **Periodic write (if `periodic: true`):** when buffer reaches `window_size`, writes a `.handoff/<ts>.md` file, then flushes.
+3. **Periodic write (if `save_periodic: true`):** when buffer reaches `window_size`, writes a `.handoff/<ts>.md` file, then flushes.
 
 On startup, `.handoff/*.md` files are parsed via `parseFeedback()` into `pendingHandoff`. On exit/dispose the buffer is saved and rotated (FIFO, `max_stored_files`).
 
 ```mermaid
 flowchart TD
     A["🔌 Plugin loads"]
-    A --> B{"on_start?"}
+    A --> B{"load_on_start?"}
     B -->|"✅ Yes"| C["📂 Read .md files<br/>→ pendingHandoff"]
     B -->|"❌ No"| D["📝 Messages flow"]
     C --> D
@@ -46,12 +46,12 @@ flowchart TD
     F --> G
 
     G --> H{"Buffer >=<br/>window_size?"}
-    H -->|"✅ Yes"| I["💾 Save .md (if periodic)<br/>→ flush buffer"]
+    H -->|"✅ Yes"| I["💾 Save .md (if save_periodic)<br/>→ flush buffer"]
     H -.->|"❌ No"| D
     I -.-> D
 
     J["🛑 exit / dispose"]
-    J --> K{"on_exit?"}
+    J --> K{"save_on_exit?"}
     K -->|"✅ Yes"| L["💾 Save handoff<br/>→ flush"]
     K -->|"❌ No"| M["🧹 Cleanup"]
     L --> M
@@ -96,12 +96,12 @@ Copy `auto-handoff.jsonc` (included in this repo) to `~/.config/opencode/` and e
 ```jsonc
 {
 	"enabled": true,           // master switch
-	"on_exit": true,           // write handoff on dispose/exit
-	"on_start": true,          // load recent handoffs on startup
-	"window_size": 20,         // max buffer size; cycles when full, writes if periodic
-	"periodic": true,          // write .md file on every buffer cycle
-	"max_stored_files": 50,    // max .handoff/*.md files to keep (rotation)
+	"window_size": 20,         // max buffer size; cycles when full, save if periodic
+	"load_on_start": true,     // load recent handoffs on startup
 	"max_load_files": 5,       // max recent handoff files to load on startup
+	"save_periodic": true,     // write handoff file on every buffer cycle
+	"save_on_exit": true,      // write handoff file on dispose/exit
+	"max_stored_files": 50,    // max .handoff/*.md files to keep (rotation)
 	"log_level": "info",       // silent, error, info, debug
 }
 ```
@@ -109,12 +109,12 @@ Copy `auto-handoff.jsonc` (included in this repo) to `~/.config/opencode/` and e
 | Field | Default | Description |
 |---|---|---|
 | `enabled` | `true` | master switch |
-| `on_exit` | `true` | write handoff on dispose/exit |
-| `on_start` | `true` | load recent handoffs on startup |
-| `window_size` | `20` | max buffer size; cycles when full (min 1). If `periodic: true`, writes `.md` on each cycle |
-| `periodic` | `true` | write `.md` file on every buffer cycle |
-| `max_stored_files` | `50` | max `.handoff/*.md` files to keep (rotation, min 1) |
+| `window_size` | `20` | max buffer size; cycles when full (min 1). If `save_periodic: true`, writes `.md` on each cycle |
+| `load_on_start` | `true` | load recent handoffs on startup |
 | `max_load_files` | `5` | max recent handoff files to load on startup (min 1) |
+| `save_periodic` | `true` | write `.md` file on every buffer cycle |
+| `save_on_exit` | `true` | write handoff on dispose/exit |
+| `max_stored_files` | `50` | max `.handoff/*.md` files to keep (rotation, min 1) |
 | `log_level` | `"info"` | log level (`silent`, `error`, `info`, `debug`) |
 
 If the file doesn't exist, defaults are used.
@@ -169,4 +169,4 @@ Less is more. :)
 
 ## 📄 License
 
-AGPL-3.0 — version 1.1.22
+AGPL-3.0 — version 1.1.23

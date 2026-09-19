@@ -1,10 +1,10 @@
 {
 	"enabled": true,           // master switch
-	"on_exit": true,           // write handoff on dispose/exit
-	"on_start": true,          // load recent handoffs on startup
-	"window_size": 20,         // max buffer size; cycles when full, writes if periodic
-	"periodic": true,          // write .md file on every buffer cycle
-	"max_stored_files": 50,    // max .handoff/*.md files to keep (rotation)
+	"window_size": 20,         // max buffer size; cycles when full, save if periodic
+	"load_on_start": true,     // load recent handoffs on startup
 	"max_load_files": 5,       // max recent handoff files to load on startup
+	"save_periodic": true,     // write handoff file on every buffer cycle
+	"save_on_exit": true,      // write handoff file on dispose/exit
+	"max_stored_files": 50,    // max .handoff/*.md files to keep (rotation)
 	"log_level": "info",       // silent, error, info, debug
 }
